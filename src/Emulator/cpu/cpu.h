@@ -80,6 +80,7 @@ typedef struct Cpu {
   Pin pin_VSS1;
 
   Register registers[6];
+  u8 IR;
 
   u8 interrupt_enable;
   u8 interrupt_flag;

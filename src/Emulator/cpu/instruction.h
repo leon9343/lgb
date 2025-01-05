@@ -37,4 +37,9 @@ ResultInstr instruction_decode(u8 opcode);
 bool instruction_is_complete(const Instruction* instr);
 Result instruction_step(Cpu* cpu, Mem* mem, Instruction* instruction);
 
+// MCycles
+MCycle idle_cycle_create();
+MCycle fetch_cycle_create();
+MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)); 
+
 #endif // !INSTRUCTION_H

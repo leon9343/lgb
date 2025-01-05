@@ -87,6 +87,7 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
   cpu->registers[HL].v = 0x014D;
   cpu->registers[SP].v = 0xFFFE;
   cpu->registers[PC].v = 0x0100;
+  cpu->IR = 0x00;
 
   cpu->interrupt_enable = 0x00;
   cpu->interrupt_flag   = 0xE0;
@@ -116,13 +117,10 @@ Result cpu_step(Cpu* cpu) {
     return result_error(Error_NullPointer, "invalid cpu to cpu_step");
   }
 
-  if (!g_hasInstr || instruction_is_complete(&g_currentInstr)) {
-    u16 pc = cpu->registers[PC].v;
-    u8 opcode = mem_read8(cpu->mem, cpu, pc);
-
-    ResultInstr rdec = instruction_decode(opcode);
+  if (!g_hasInstr) {
+    ResultInstr rdec = instruction_decode(cpu->IR);
     if (result_Instr_is_err(&rdec)) {
-      LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", opcode, pc);
+      LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v);
       g_hasInstr = false;
       return result_error(rdec.error_code, "Decode Error: %s", rdec.message);
     }
@@ -130,7 +128,7 @@ Result cpu_step(Cpu* cpu) {
     g_currentInstr = result_Instr_get_data(&rdec);
     g_hasInstr     = true;
 
-    LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, pc);
+    LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, cpu->registers[PC].v);
   }
 
   Result r = instruction_step(cpu, cpu->mem, &g_currentInstr);
@@ -138,6 +136,9 @@ Result cpu_step(Cpu* cpu) {
     LOG_ERROR("Error stepping instruction: %s", r.message);
     return r;
   }
+
+  if (instruction_is_complete(&g_currentInstr))
+    g_hasInstr = false;
 
   return result_ok();
 }
