@@ -1,0 +1,62 @@
+[
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/App/app.c.o -c /home/leonardo/dev/EmuDev/lgb/src/App/app.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/App/app.c",
+  "output": "CMakeFiles/lgb.dir/src/App/app.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/App/input.c.o -c /home/leonardo/dev/EmuDev/lgb/src/App/input.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/App/input.c",
+  "output": "CMakeFiles/lgb.dir/src/App/input.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/App/window.c.o -c /home/leonardo/dev/EmuDev/lgb/src/App/window.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/App/window.c",
+  "output": "CMakeFiles/lgb.dir/src/App/window.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/cpu/apu.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/apu.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/apu.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/cpu/apu.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/cpu/cpu.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/cpu.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/cpu.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/cpu/cpu.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/cpu/instruction.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/instruction.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/instruction.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/cpu/instruction.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/cpu/instructions/inc_r16.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/instructions/inc_r16.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/instructions/inc_r16.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/cpu/instructions/inc_r16.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/cpu/ppu.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/ppu.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/cpu/ppu.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/cpu/ppu.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/Emulator/mem.c.o -c /home/leonardo/dev/EmuDev/lgb/src/Emulator/mem.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/Emulator/mem.c",
+  "output": "CMakeFiles/lgb.dir/src/Emulator/mem.c.o"
+},
+{
+  "directory": "/home/leonardo/dev/EmuDev/lgb/build",
+  "command": "/usr/bin/cc  -I/home/leonardo/dev/EmuDev/lgb/src -isystem /usr/include/SDL2  -o CMakeFiles/lgb.dir/src/main.c.o -c /home/leonardo/dev/EmuDev/lgb/src/main.c",
+  "file": "/home/leonardo/dev/EmuDev/lgb/src/main.c",
+  "output": "CMakeFiles/lgb.dir/src/main.c.o"
+}
+]
