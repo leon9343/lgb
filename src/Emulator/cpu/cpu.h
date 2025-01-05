@@ -85,7 +85,7 @@ typedef struct Cpu {
   u8 interrupt_enable;
   u8 interrupt_flag;
 
-  bool bootrom_mapped;
+  bool bootrom_mapped; // TODO
 
   Ppu ppu;
   Apu apu;
@@ -93,8 +93,10 @@ typedef struct Cpu {
   Mem* mem;
 } Cpu;
 
+// Initializes the cpu internals to default values, and links app.mem to cpu.mem (passed as argument)
 Result cpu_init(Cpu* cpu, Mem* mem);
 
+// Steps the cpu by one tcycle
 Result cpu_step(Cpu* cpu);
 
 #endif // !CPU_H

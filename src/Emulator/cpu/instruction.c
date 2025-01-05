@@ -5,9 +5,9 @@
 #include <string.h>
 #include <types.h>
 
-ResultInstr build_nop(u8 opcode);
+ResultInstr build_nop(u8 opcode); // Forward declaration, returns a nop instruction
 
-ResultInstr build_inc_r16(u8 opcode);
+ResultInstr build_inc_r16(u8 opcode); // from inc_r16.h
 
 static void pin_set_low(Pin* pin)  { pin->state = PIN_LOW;  }
 static void pin_set_high(Pin* pin) { pin->state = PIN_HIGH; }
@@ -22,6 +22,7 @@ static void set_bus_hiz(Cpu* cpu) {
   }
 }
 
+// Empty tcycle
 void nop(Cpu* cpu, Mem* mem, int t_idx) {
   return;
 }
@@ -109,6 +110,7 @@ Result instruction_step(Cpu *cpu, Mem *mem, Instruction *instruction) {
 
 // MCycles //
 
+// Base MCycle
 static MCycle mcycle_new(bool uses_memory, int tcycle_count) {
   MCycle m;
   memset(&m, 0, sizeof(m));
@@ -118,9 +120,12 @@ static MCycle mcycle_new(bool uses_memory, int tcycle_count) {
   return m;
 }
 
+// General use function. Useful to differentiate between the likes of inc_BC/inc_DE/inc_HL/inc_SP
+// I prefer this to a general inc_reg(Register) because it is easier to use with different kinds of instructions, as this can
+// declaration can do anything from shifting/adding/subtracting/etc.
 static void (*g_fn)(Cpu*, Mem*) = NULL;
 
-// Fetch Cycles
+// Fetch Cycles (what happens each tcycle) (pin setups are subject to change as I do more research)
 static void fetch_T0(Cpu* cpu, Mem* mem, int t_idx) {
   (void)t_idx; (void)mem;
   u16 addr = cpu->registers[PC].v;
@@ -213,6 +218,7 @@ MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)) {
 ResultInstr build_nop(u8 opcode) {
   Instruction instr;
   memset(&instr, 0, sizeof(instr));
+  instr.mnemonic = "NOP";
   instr.opcode = opcode;
   instr.mcycle_count = 2;
   instr.current_mcycle = 0;

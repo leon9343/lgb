@@ -10,10 +10,10 @@
 #include <lresult.h>
 
 typedef enum {
-    EAppWindow_None = 0,
-    EAppWindow_GameBoy,
-    EAppWindow_Diagram,
-    EAppWindow_Cpu,
+  EAppWindow_None = 0,
+  EAppWindow_GameBoy,
+  EAppWindow_Diagram,
+  EAppWindow_Cpu,
 } EAppWindow;
 
 typedef struct App {
@@ -36,9 +36,13 @@ typedef struct App {
 
 DEFINE_RESULT_TYPE(App, App);
 
+// Creates new instance of app
 ResultApp app_create();
+
+// Clears app resources
 void app_destroy(App* app);
 
+// Main loop of the application
 Result app_run(App* app);
 
 #endif // !APP_H

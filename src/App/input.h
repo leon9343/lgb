@@ -15,6 +15,7 @@ typedef enum {
   ICODE_UNKNOWN
 } EInputCode;
 
+// Returns an EInputCode depending on the pressed keys
 EInputCode handle_input(struct App* app, SDL_Event* e);
 
 #endif // !INPUT_H

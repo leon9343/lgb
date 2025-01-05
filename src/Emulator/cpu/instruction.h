@@ -31,15 +31,21 @@ typedef struct {
 
 DEFINE_RESULT_TYPE(Instruction, Instr);
 
+// Creates new instance of Instruction
 ResultInstr instruction_create(u8 opcode, const char* mnemonic, const MCycle* cycles, int mc_count);
 
+// Returns an instruction based on the passed opcode
 ResultInstr instruction_decode(u8 opcode);
+
+// Returns true if the instruction is done executing, false otherwise
 bool instruction_is_complete(const Instruction* instr);
+
+// Steps the instruction by one tcycle
 Result instruction_step(Cpu* cpu, Mem* mem, Instruction* instruction);
 
 // MCycles
-MCycle idle_cycle_create();
-MCycle fetch_cycle_create();
-MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)); 
+MCycle idle_cycle_create();                             // idle mcyle (think of nop)
+MCycle fetch_cycle_create();                            // fetches new opcode into IR
+MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)); // inc_rr, where register is different based on 'inc' (see instruction.c)
 
 #endif // !INSTRUCTION_H

@@ -28,10 +28,10 @@ typedef struct {
   // TODO: counters, fetchers, etc
 } Ppu;
 
-// To be called internally by cpu
+// To be called internally by cpu. Inititalizes the ppu's internals to default values
 Result ppu_init(Ppu* ppu);
 
-// TODO
+// TODO (empty)
 Result ppu_step(Ppu* ppu);
 
 #endif // !PPU_H

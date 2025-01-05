@@ -47,7 +47,7 @@ ResultApp app_create() {
   app.diagram_window_open = false;
   app.cpu_window_open = false;
 
-  app.font = TTF_OpenFont("/home/leonardo/.local/share/fonts/JetBrainsMonoNerdFont-Bold.ttf", 14);
+  app.font = TTF_OpenFont("/usr/share/fonts/open-sans/OpenSans-Regular.ttf", 14);  // Default
   if (!app.font) {
     SDL_Quit();
     TTF_Quit();

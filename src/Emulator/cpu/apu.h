@@ -42,10 +42,10 @@ typedef struct {
   u8 wave_ram[16];
 } Apu;
 
-// To be called internally by cpu
+// To be called internally by cpu. Inititalizes the ppu's internals to default values
 Result apu_init(Apu* apu);
 
-// TODO
+// TODO (empty)
 Result apu_step(Apu* apu);
 
 #endif // !APU_H

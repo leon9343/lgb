@@ -18,9 +18,13 @@ typedef struct {
   u8 hram[HRAM_SIZE];
 } Mem;
 
+// Inititalizes the memory with default values 
 Result mem_init(Mem* mem);
 
+// Returns the byte at the specified address
 u8 mem_read8(Mem* mem, struct Cpu* cpu, u16 addr);
+
+// Write the byte at the specified address
 void mem_write8(Mem* mem, struct Cpu* cpu, u16 addr, u8 val);
 
 #endif // !MEM_H
