@@ -21,10 +21,12 @@ EInputCode handle_input(struct App *app, SDL_Event *e) {
         case EAppWindow_GameBoy: {
           if (key == SDLK_h) {
             LOG_INFO("[Help]\n"
-                     "  'vd' -> View Diagram\n"
-                     "  'vc' -> View CPU\n"
-                     "  'h'  -> Show help\n"
-                     "  Esc  -> Quit active window\n");
+                     "  'vd'    -> View Diagram\n"
+                     "  'vc'    -> View CPU\n"
+                     "  'h'     -> Show help\n"
+                     "  'space' -> Step one tcycle\n"
+                     "  'enter' -> Enable auto-play\n"
+                     "  'Esc'   -> Quit active window\n");
             return ICODE_SHOW_HELP;
           } 
 
