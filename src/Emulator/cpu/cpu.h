@@ -7,6 +7,15 @@
 #include "apu.h"
 #include <Emulator/mem.h>
 
+#define CLOCK_PERIOD (1.0 / 4194304.0)
+
+typedef enum {
+  CLOCK_RISING,
+  CLOCK_HIGH,
+  CLOCK_FALLING,
+  CLOCK_LOW
+} EClockPhase;
+
 typedef enum {
   AF = 0,
   BC,
@@ -85,6 +94,9 @@ typedef struct Cpu {
   u8 interrupt_enable;
   u8 interrupt_flag;
 
+  EClockPhase clock_phase;
+  u64 clock_cycles;
+
   bool bootrom_mapped; // TODO
 
   Ppu ppu;
@@ -95,6 +107,8 @@ typedef struct Cpu {
 
 // Initializes the cpu internals to default values, and links app.mem to cpu.mem (passed as argument)
 Result cpu_init(Cpu* cpu, Mem* mem);
+
+Result cpu_clock_tick(Cpu* cpu);
 
 // Steps the cpu by one tcycle
 Result cpu_step(Cpu* cpu);

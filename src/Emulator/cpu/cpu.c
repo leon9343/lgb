@@ -92,6 +92,9 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
   cpu->interrupt_enable = 0x00;
   cpu->interrupt_flag   = 0xE0;
 
+  cpu->clock_phase = CLOCK_LOW;
+  cpu->clock_cycles = 0;
+
   cpu->bootrom_mapped = false;
 
   Result rppu = ppu_init(&cpu->ppu);
@@ -112,12 +115,37 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
   return result_ok();
 }
 
+Result cpu_clock_tick(Cpu *cpu) {
+  switch (cpu->clock_phase) {
+    case CLOCK_LOW:
+      cpu->clock_phase = CLOCK_RISING;
+      pin_set_high(&cpu->pin_CLK);
+      break;
+
+    case CLOCK_RISING:
+      cpu->clock_phase = CLOCK_HIGH;
+      cpu->clock_cycles++;
+      break;
+
+    case CLOCK_HIGH:
+      cpu->clock_phase = CLOCK_FALLING;
+      pin_set_low(&cpu->pin_CLK);
+      break;
+
+    case CLOCK_FALLING:
+      cpu->clock_phase = CLOCK_LOW;
+      break;
+  }
+
+  return cpu_step(cpu);
+}
+
 Result cpu_step(Cpu* cpu) {
   if (!cpu) {
     return result_error(Error_NullPointer, "invalid cpu to cpu_step");
   }
 
-  if (!g_hasInstr) {
+  if (!g_hasInstr && cpu->clock_phase == CLOCK_LOW) {
     ResultInstr rdec = instruction_decode(cpu->IR);
     if (result_Instr_is_err(&rdec)) {
       LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v);
@@ -129,6 +157,7 @@ Result cpu_step(Cpu* cpu) {
     g_hasInstr     = true;
 
     LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, cpu->registers[PC].v);
+
   }
 
   Result r = instruction_step(cpu, cpu->mem, &g_currentInstr);

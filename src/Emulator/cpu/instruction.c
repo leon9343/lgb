@@ -9,19 +9,6 @@ ResultInstr build_nop(u8 opcode); // Forward declaration, returns a nop instruct
 
 ResultInstr build_inc_r16(u8 opcode); // from inc_r16.h
 
-static void pin_set_low(Pin* pin)  { pin->state = PIN_LOW;  }
-static void pin_set_high(Pin* pin) { pin->state = PIN_HIGH; }
-static void pin_set_hiz (Pin* pin) { pin->state = PIN_HIGHZ; }
-
-static void set_bus_hiz(Cpu* cpu) {
-  for (int i = 0; i < 16; i++) {
-    pin_set_hiz(&cpu->addr_bus[i]);
-  }
-  for (int i = 0; i < 8; i++) {
-    pin_set_hiz(&cpu->data_bus[i]);
-  }
-}
-
 // Empty tcycle
 void nop(Cpu* cpu, Mem* mem, int t_idx) {
   return;
@@ -78,7 +65,7 @@ ResultInstr instruction_decode(u8 opcode) {
   }
 }
 
-Result instruction_step(Cpu *cpu, Mem *mem, Instruction *instruction) {
+Result instruction_step(Cpu* cpu, Mem* mem, Instruction* instruction) {
   if (!cpu || !mem || !instruction) 
     return result_error(Error_NullPointer, "null pointer to instruction_step. cpu: %d | mem: %d | instruction: %d", cpu, mem, instruction);
 
@@ -89,14 +76,15 @@ Result instruction_step(Cpu *cpu, Mem *mem, Instruction *instruction) {
   if (!mc) 
     return result_error(Error_NullPointer, "null mcycle pointer in instruction_step. current_mcycle: %d", instruction->current_mcycle);
 
-  if (instruction->current_tcycle < mc->tcycle_count) {
-    TCycle_fn fn = mc->tcycles[instruction->current_tcycle];
-    if (fn) {
+  TCycle_fn fn = mc->tcycles[instruction->current_tcycle];
+  if (fn) {
+    if (cpu->clock_phase != CLOCK_LOW && cpu->clock_phase != CLOCK_FALLING)
       fn(cpu, mem, instruction->current_tcycle);
-    } else {
-      return result_error(Error_NullPointer, "null tcycle pointer in instruction_step. current_tcycle: %d", instruction->current_tcycle);
-    }
+  }
+  else
+    return result_error(Error_NullPointer, "null tcycle pointer in instruction_step. current_tcycle: %d", instruction->current_tcycle);
 
+  if (cpu->clock_phase == CLOCK_FALLING) {
     instruction->current_tcycle++;
 
     if (instruction->current_tcycle >= mc->tcycle_count) {
@@ -127,59 +115,74 @@ static void (*g_fn)(Cpu*, Mem*) = NULL;
 
 // Fetch Cycles (what happens each tcycle) (pin setups are subject to change as I do more research)
 static void fetch_T0(Cpu* cpu, Mem* mem, int t_idx) {
-  (void)t_idx; (void)mem;
+  (void)mem; (void)t_idx; 
   u16 addr = cpu->registers[PC].v;
 
-  for (int i = 0; i < 16; i++) {
-    u16 bit = (addr >> i) & 1;
-    cpu->addr_bus[i].state = bit ? PIN_HIGH : PIN_LOW;
+  if (cpu->clock_phase == CLOCK_RISING) {
+    for (int i = 0; i < 16; i++) {
+      u16 bit = (addr >> i) & 1;
+      cpu->addr_bus[i].state = bit ? PIN_HIGH : PIN_LOW;
+    }
   }
 
-  pin_set_low(&cpu->pin_MCS);
-  pin_set_high(&cpu->pin_RD);
-  pin_set_high(&cpu->pin_WR);
+  else if (cpu->clock_phase == CLOCK_HIGH) {
+    pin_set_low(&cpu->pin_MCS);
+    pin_set_high(&cpu->pin_RD);
+    pin_set_high(&cpu->pin_WR);
+  }
 }
 
 static void fetch_T1(Cpu* cpu, Mem* mem, int t_idx) {
   (void)t_idx;
   u16 addr = cpu->registers[PC].v;
-  u8 data = mem_read8(mem, cpu, addr);
 
-  for (int i = 0; i < 8; i++) {
-    u8 bit = (data >> i) & 1;
-    cpu->data_bus[i].state = bit ? PIN_HIGH : PIN_LOW;
+  if (cpu->clock_phase == CLOCK_RISING) {
+    u8 data = mem_read8(mem, cpu, addr);
+    for (int i = 0; i < 8; i++) {
+      u8 bit = (data >> i) & 1;
+      cpu->data_bus[i].state = bit ? PIN_HIGH : PIN_LOW;
+    }
   }
 
-  pin_set_low(&cpu->pin_RD);
-  cpu->IR = data;
+  if (cpu->clock_phase == CLOCK_HIGH) {
+    pin_set_low(&cpu->pin_RD);
+    cpu->IR = mem_read8(mem, cpu, cpu->registers[PC].v);
+  }
+
 }
 
 static void fetch_T2(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx;
 
-  cpu->registers[PC].v++;
+  if (cpu->clock_phase == CLOCK_RISING) 
+    pin_set_high(&cpu->pin_RD);
 
-  pin_set_high(&cpu->pin_RD);
+  else if (cpu->clock_phase == CLOCK_HIGH)
+    cpu->registers[PC].v++;
+
 }
 
 static void fetch_T3(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx;
 
-  for (int i = 0; i < 16; i++) cpu->addr_bus[i].state = PIN_HIGHZ;
-  for (int i = 0; i < 8; i++)  cpu->data_bus[i].state = PIN_HIGHZ;
+  if (cpu->clock_phase == CLOCK_RISING) 
+    pin_set_high(&cpu->pin_MCS);
 
-  pin_set_high(&cpu->pin_MCS);
+  else if (cpu->clock_phase == CLOCK_HIGH)
+    set_bus_hiz(cpu);
+
 }
 
 // Increment
 static void increment_T0(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx;
-  if (g_fn) g_fn(cpu, mem);
 }
 
 static void increment_T1(Cpu* cpu, Mem* mem, int t_idx) {
   (void)cpu; (void)mem; (void)t_idx;
-  // Idle
+
+  if (cpu->clock_phase == CLOCK_HIGH)
+    if (g_fn) g_fn(cpu, mem);
 }
 
 // MCycle Creation
@@ -205,10 +208,12 @@ MCycle fetch_cycle_create() {
 
 MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)) {
   g_fn = inc;
-  MCycle m = mcycle_new(false, 2);
+  MCycle m = mcycle_new(false, 4);
 
   m.tcycles[0] = increment_T0;
   m.tcycles[1] = increment_T1;
+  m.tcycles[2] = increment_T0;
+  m.tcycles[3] = increment_T0;
 
   return m;
 }

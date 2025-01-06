@@ -1,6 +1,9 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include "types.h"
+#include <Emulator/cpu/cpu.h>
+
 typedef enum {
   Error_None = 0,
   Error_Unknown,
@@ -42,5 +45,11 @@ static inline const char* error_string(int code) {
       return "Unknown error";
   }
 }
+
+// Pin Operations
+void pin_set_low(Pin* pin);
+void pin_set_high(Pin* pin);
+void pin_set_hiz (Pin* pin);
+void set_bus_hiz(Cpu* cpu);
 
 #endif // !UTIL_H

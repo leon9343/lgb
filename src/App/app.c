@@ -21,12 +21,31 @@ static Result create_cpu_window(App* app);
 static void  close_diagram_window(App* app);
 static void  close_cpu_window(App* app);
 
+static int emulation_thread_func(void* data);
+
 static void _test_program(Mem* mem, Cpu* cpu) {
   // TEST 
   mem_write8(mem, cpu, 0xC0A0, 0x03);
   mem_write8(mem, cpu, 0xC0A1, 0x13);
   mem_write8(mem, cpu, 0xC0A2, 0x23);
   cpu->registers[PC].v = 0xC0A0;
+}
+
+void update_timing_history(App* app) {
+  TimingPoint current = {
+    .phase     = app->cpu->clock_phase,
+    .mem_read  = app->cpu->pin_RD.state == PIN_LOW,
+    .mem_write = app->cpu->pin_WR.state == PIN_LOW,
+    .mem_addr  = 0
+  };
+
+  for (int i = 0; i < 16; i++) {
+    if (app->cpu->addr_bus[i].state == PIN_HIGH)
+      current.mem_addr |= (1 << i);
+  }
+
+  app->timing_history[app->timing_history_pos] = current;
+  app->timing_history_pos = (app->timing_history_pos + 1) % MAX_TIMING_HISTORY;
 }
 
 ResultApp app_create() {
@@ -46,6 +65,13 @@ ResultApp app_create() {
   app.active_window = EAppWindow_None;
   app.diagram_window_open = false;
   app.cpu_window_open = false;
+
+  app.timing_history_pos = 0;
+
+  app.should_quit = false;
+  app.thread_inititalized = false;
+  app.timing_mutex = SDL_CreateMutex();
+  app.cpu_mutex = SDL_CreateMutex();
 
   app.font = TTF_OpenFont("/usr/share/fonts/open-sans/OpenSans-Regular.ttf", 14);  // Default
   if (!app.font) {
@@ -107,6 +133,9 @@ void app_destroy(App *app) {
     app->cpu = NULL;
   }
 
+  SDL_DestroyMutex(app->timing_mutex);
+  SDL_DestroyMutex(app->cpu_mutex);
+
   SDL_Quit();
   TTF_Quit();
 
@@ -148,8 +177,8 @@ static Result create_diagram_window(App* app) {
   props.title  = "Diagram";
   props.x      = SDL_WINDOWPOS_CENTERED;
   props.y      = SDL_WINDOWPOS_CENTERED;
-  props.width  = 640;
-  props.height = 1000;
+  props.width  = 1600;
+  props.height = 1100;
   props.flags  = 0;
 
   ResultWindow rw = window_create(&props);
@@ -286,20 +315,69 @@ static void draw_text(SDL_Renderer* r, TTF_Font* font, int x, int y, const char*
 static SDL_Color pin_color(EPinState state);
 static void draw_pin_label(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* pin);
 static void draw_bus_value(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* bus_pins, int bit_count);
+static void draw_signal_line(SDL_Renderer* r, int x, int y, int width, bool high);
+static void draw_clock_cycle(SDL_Renderer* r, int x, int y, int width);
 
-static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
+static void draw_timing_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
+static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
 static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
+
+static int emulation_thread_func(void* data) {
+    App* app = (App*)data;
+    u64 last_time = SDL_GetTicks64();
+    u64 cycles = 0;
+    
+    while (!app->should_quit) {
+        if (app->auto_run && !app->paused) {
+            // Lock CPU state
+            SDL_LockMutex(app->cpu_mutex);
+            cpu_clock_tick(app->cpu);
+            
+            // Update timing history under mutex protection
+            SDL_LockMutex(app->timing_mutex);
+            update_timing_history(app);
+            SDL_UnlockMutex(app->timing_mutex);
+            
+            SDL_UnlockMutex(app->cpu_mutex);
+            
+            cycles++;
+            
+            // Calculate performance every second
+            u64 current_time = SDL_GetTicks64();
+            if (current_time - last_time >= 1000) {
+                app->cycles_per_second = cycles;
+                app->last_cycle_count = cycles;
+                app->last_cycle_time = current_time - last_time;
+                cycles = 0;
+                last_time = current_time;
+            }
+        } else {
+            SDL_Delay(1);  // Don't burn CPU when paused
+        }
+    }
+    
+    return 0;
+}
 
 Result app_run(App* app) {
   if (!app) {
     return result_error(Error_NullPointer, "Null App pointer in app_run");
   }
 
+  if (!app->thread_inititalized) {
+    app->emulation_thread = SDL_CreateThread(emulation_thread_func, 
+                                             "EmulationThread", 
+                                             app);
+    app->thread_inititalized = true;
+  }
+
   while (app->running) {
     handle_events(app);
 
-    if (app->auto_run && !app->paused) 
-      cpu_step(app->cpu);
+    if (app->auto_run && !app->paused) {
+      cpu_clock_tick(app->cpu);
+      update_timing_history(app);
+    }
 
     // Rendering
     SDL_SetRenderDrawColor(app->gameboy_window.renderer, 0, 0, 0, 255);
@@ -310,7 +388,11 @@ Result app_run(App* app) {
       SDL_SetRenderDrawColor(app->diagram_window.renderer, 40, 40, 40, 255);
       SDL_RenderClear(app->diagram_window.renderer);
 
-      draw_cpu_diagram(app->diagram_window.renderer, app->font, app->cpu);
+      SDL_LockMutex(app->cpu_mutex);
+      SDL_LockMutex(app->timing_mutex);
+      draw_cpu_diagram(app->diagram_window.renderer, app->font, app);
+      SDL_UnlockMutex(app->timing_mutex);
+      SDL_UnlockMutex(app->cpu_mutex);
 
       window_draw(&app->diagram_window);
     }
@@ -383,7 +465,85 @@ static void draw_bus_value(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* b
   draw_text(r, font, x, y, buf, COLOR_WHITE);
 }
 
-static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, Cpu* cpu) {
+static void draw_signal_line(SDL_Renderer* r, int x, int y, int width, bool high) {
+  int height = high ? y : y + 20;
+  SDL_RenderDrawLine(r, x, height, x + width, height);
+}
+
+static void draw_clock_cycle(SDL_Renderer* r, int x, int y, int width) {
+  int half = width / 2;
+  draw_signal_line(r, x, y, half, true);
+  draw_signal_line(r, x + half, y, half, false);
+    
+  SDL_RenderDrawLine(r, x, y + 20, x, y);
+  SDL_RenderDrawLine(r, x + half, y, x + half, y + 20);
+  SDL_RenderDrawLine(r, x + width, y + 20, x + width, y);
+}
+
+static void draw_timing_diagram(SDL_Renderer* r, TTF_Font* font, App* app) {
+  const int START_X = 500;  
+  const int START_Y = 50;
+  const int SIGNAL_HEIGHT = 30;
+  const int PHASE_WIDTH = 20;  
+
+  draw_text(r, font, START_X - 80, START_Y, "CLK", COLOR_WHITE);
+  draw_text(r, font, START_X - 80, START_Y + SIGNAL_HEIGHT, "Mem R/W", COLOR_WHITE);
+  draw_text(r, font, START_X - 80, START_Y + SIGNAL_HEIGHT * 2, "Mem Addr", COLOR_WHITE);
+
+  // Draw vertical grid lines for timing reference
+  SDL_SetRenderDrawColor(r, 60, 60, 60, 255);
+  for (int x = 0; x <= MAX_TIMING_HISTORY; x++) {
+    int grid_x = START_X + (x * PHASE_WIDTH);
+    SDL_RenderDrawLine(r, grid_x, START_Y - 10, grid_x, START_Y + SIGNAL_HEIGHT * 3);
+  }
+
+  for (int i = 0; i < MAX_TIMING_HISTORY - 1; i++) {
+    int idx = (app->timing_history_pos + i) % MAX_TIMING_HISTORY;
+    int next_idx = (app->timing_history_pos + i + 1) % MAX_TIMING_HISTORY;
+    TimingPoint state = app->timing_history[idx];
+    TimingPoint next_state = app->timing_history[next_idx];
+    int x = START_X + (i * PHASE_WIDTH);
+
+    int y = START_Y;
+    int level = 0;
+    switch(state.phase) {
+      case CLOCK_LOW:
+      case CLOCK_FALLING:
+        level = 20;  
+        break;
+      case CLOCK_HIGH:
+      case CLOCK_RISING:
+        level = 0;   
+        break;
+    }
+
+    SDL_RenderDrawLine(r, x, y + level, x + PHASE_WIDTH, y + level);
+
+    if (state.phase != next_state.phase) {
+      int next_level = (next_state.phase == CLOCK_LOW || 
+        next_state.phase == CLOCK_FALLING) ? 20 : 0;
+      SDL_RenderDrawLine(r, x + PHASE_WIDTH, y + level, 
+                         x + PHASE_WIDTH, y + next_level);
+    }
+
+    y = START_Y + SIGNAL_HEIGHT;
+    if (state.mem_read)
+      draw_text(r, font, x, y - 10, "R", COLOR_GREEN);
+    else if (state.mem_write)
+      draw_text(r, font, x, y - 10, "W", COLOR_GREEN);
+
+    if (i % 4 == 0) {  
+      y = START_Y + SIGNAL_HEIGHT * 2;
+      char addr_buf[32];
+      snprintf(addr_buf, sizeof(addr_buf), "%04X", state.mem_addr);
+      draw_text(r, font, x, y - 10, addr_buf, COLOR_WHITE);
+    }
+  }
+}
+
+static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app) {
+  Cpu* cpu = app->cpu;
+
   if (!cpu) {
     LOG_WARNING("invalid cpu in draw_cpu_diagram. Doing nothing");
     return;
@@ -411,7 +571,7 @@ static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, Cpu* cpu) {
 
   pin_y += spacing; // X0
   pin_y += spacing; // X1
-  
+
   pin_y += spacing; 
   for (int i = 0; i < (8 + 13); i++) { // MD/MA
     pin_y += spacing; 
@@ -435,6 +595,8 @@ static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, Cpu* cpu) {
   pin_y += spacing; // SOUT
   pin_y += spacing; // SIN
   pin_y += spacing; // SCX
+  pin_y += spacing; // space
+  pin_y += spacing; // space
   draw_pin_label(r, font, pin_x, pin_y, &cpu->pin_CLK);
   pin_y += spacing; 
   draw_pin_label(r, font, pin_x, pin_y, &cpu->pin_WR);
@@ -472,6 +634,8 @@ static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, Cpu* cpu) {
   label_y += 20;
   draw_text(r, font, label_x, label_y, "Data:", COLOR_WHITE);
   draw_bus_value(r, font, label_x + 50, label_y, cpu->data_bus, 8);
+
+  draw_timing_diagram(r, font, app);
 }
 
 static void draw_cpu_registers(SDL_Renderer* renderer, TTF_Font* font, Cpu* cpu) {
@@ -481,13 +645,13 @@ static void draw_cpu_registers(SDL_Renderer* renderer, TTF_Font* font, Cpu* cpu)
   int x = 10;
   int y = 10;
 
-  #define DRAW_REG(REGNAME, idx) do {\
-    char buf[64];\
-    u16 val = cpu->registers[idx].v;\
-    snprintf(buf, sizeof(buf), #REGNAME " = 0x%04X", val);\
-    draw_text(renderer, font, x, y, buf, color);\
-    y += 20;\
-  } while (0)
+#define DRAW_REG(REGNAME, idx) do {\
+  char buf[64];\
+  u16 val = cpu->registers[idx].v;\
+  snprintf(buf, sizeof(buf), #REGNAME " = 0x%04X", val);\
+  draw_text(renderer, font, x, y, buf, color);\
+  y += 20;\
+} while (0)
 
   DRAW_REG(AF, AF);
   DRAW_REG(BC, BC);

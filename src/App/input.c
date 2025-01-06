@@ -31,8 +31,10 @@ EInputCode handle_input(struct App *app, SDL_Event *e) {
           } 
 
           else if (key == SDLK_SPACE) {
-            if (app->paused) 
-              cpu_step(app->cpu);
+            if (app->paused) {
+              cpu_clock_tick(app->cpu);
+              update_timing_history(app);
+            }
             else {
               app->paused = true;
               app->auto_run = false;

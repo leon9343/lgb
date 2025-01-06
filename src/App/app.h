@@ -6,8 +6,18 @@
 #include <Emulator/mem.h>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_thread.h>
 #include <stdbool.h>
 #include <lresult.h>
+
+#define MAX_TIMING_HISTORY 32
+
+typedef struct {
+  EClockPhase phase;
+  bool mem_read;
+  bool mem_write;
+  u16 mem_addr;
+} TimingPoint;
 
 typedef enum {
   EAppWindow_None = 0,
@@ -28,6 +38,19 @@ typedef struct App {
   bool diagram_window_open;
   bool cpu_window_open;
 
+  SDL_Thread* emulation_thread;
+  SDL_mutex* timing_mutex;
+  SDL_mutex* cpu_mutex;
+  bool thread_inititalized;
+  bool should_quit; // for thread
+
+  u64 cycles_per_second;
+  u64 last_cycle_count;
+  u64 last_cycle_time;
+
+  TimingPoint timing_history[MAX_TIMING_HISTORY];
+  int timing_history_pos;
+
   Cpu* cpu;
   Mem* mem;
 
@@ -44,5 +67,8 @@ void app_destroy(App* app);
 
 // Main loop of the application
 Result app_run(App* app);
+
+// Helper
+void update_timing_history(App* app);
 
 #endif // !APP_H
