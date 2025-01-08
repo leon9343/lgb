@@ -1,5 +1,5 @@
 # lgb
-Cycle Accurate DMG-GameBoy emulator with hardware diagram viewer
+Sub-cycle Accurate DMG-GameBoy emulator with hardware diagram viewer
 
 ![emulator running with diagram](https://github.com/leon9343/lgb/blob/main/media/emu_wip_0.png?raw=true)
 
