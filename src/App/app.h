@@ -42,7 +42,9 @@ typedef struct App {
   SDL_mutex* timing_mutex;
   SDL_mutex* cpu_mutex;
   bool thread_inititalized;
-  bool should_quit; // for thread
+  volatile bool should_quit; // for thread
+  volatile bool thread_running;
+  volatile bool resources_valid;
 
   u64 cycles_per_second;
   u64 last_cycle_count;

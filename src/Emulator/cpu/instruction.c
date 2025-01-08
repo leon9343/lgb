@@ -1,4 +1,5 @@
 #include "instruction.h"
+#include "Emulator/cpu/instructions/instructions.h"
 #include <lresult.h>
 #include <util.h>
 #include <llog.h>
@@ -7,10 +8,9 @@
 
 ResultInstr build_nop(u8 opcode); // Forward declaration, returns a nop instruction
 
-ResultInstr build_inc_r16(u8 opcode); // from inc_r16.h
-
 // Empty tcycle
-void nop(Cpu* cpu, Mem* mem, int t_idx) {
+void idle_t(Cpu* cpu, Mem* mem, int t_idx) {
+  (void)cpu; (void)mem; (void)t_idx;
   return;
 }
 
@@ -49,14 +49,27 @@ ResultInstr instruction_decode(u8 opcode) {
         return result_err_Instr(ri.error_code, ri.message);
     }
 
+    // INCREMENT R16
     case 0x03:
     case 0x13:
     case 0x23:
     case 0x33: {
-      ResultInstr ri = build_inc_r16(opcode);
+      ResultInstr ri = build_inc_dec_r16(opcode);
       if (result_Instr_is_ok(&ri))
         return result_ok_Instr(result_Instr_get_data(&ri));
       else
+        return result_err_Instr(ri.error_code, ri.message);
+    }
+
+    // DECREMENT R16
+    case 0x08:
+    case 0x18:
+    case 0x28:
+    case 0x38: {
+      ResultInstr ri = build_inc_dec_r16(opcode);
+      if (result_Instr_is_ok(&ri))
+        return result_ok_Instr(result_Instr_get_data(&ri));
+      else 
         return result_err_Instr(ri.error_code, ri.message);
     }
 
@@ -113,8 +126,8 @@ static MCycle mcycle_new(bool uses_memory, int tcycle_count) {
 // declaration can do anything from shifting/adding/subtracting/etc.
 static void (*g_fn)(Cpu*, Mem*) = NULL;
 
-// Fetch Cycles (what happens each tcycle) (pin setups are subject to change as I do more research)
-static void fetch_T0(Cpu* cpu, Mem* mem, int t_idx) {
+// Fetch Cycles 
+void fetch_t0(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx; 
   u16 addr = cpu->registers[PC].v;
 
@@ -132,7 +145,7 @@ static void fetch_T0(Cpu* cpu, Mem* mem, int t_idx) {
   }
 }
 
-static void fetch_T1(Cpu* cpu, Mem* mem, int t_idx) {
+void fetch_t1(Cpu* cpu, Mem* mem, int t_idx) {
   (void)t_idx;
   u16 addr = cpu->registers[PC].v;
 
@@ -151,7 +164,7 @@ static void fetch_T1(Cpu* cpu, Mem* mem, int t_idx) {
 
 }
 
-static void fetch_T2(Cpu* cpu, Mem* mem, int t_idx) {
+void fetch_t2(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx;
 
   if (cpu->clock_phase == CLOCK_RISING) 
@@ -162,7 +175,7 @@ static void fetch_T2(Cpu* cpu, Mem* mem, int t_idx) {
 
 }
 
-static void fetch_T3(Cpu* cpu, Mem* mem, int t_idx) {
+void fetch_t3(Cpu* cpu, Mem* mem, int t_idx) {
   (void)mem; (void)t_idx;
 
   if (cpu->clock_phase == CLOCK_RISING) 
@@ -173,12 +186,8 @@ static void fetch_T3(Cpu* cpu, Mem* mem, int t_idx) {
 
 }
 
-// Increment
-static void increment_T0(Cpu* cpu, Mem* mem, int t_idx) {
-  (void)mem; (void)t_idx;
-}
-
-static void increment_T1(Cpu* cpu, Mem* mem, int t_idx) {
+// Operation on HIGH clock
+void op_high_t(Cpu* cpu, Mem* mem, int t_idx) {
   (void)cpu; (void)mem; (void)t_idx;
 
   if (cpu->clock_phase == CLOCK_HIGH)
@@ -187,10 +196,12 @@ static void increment_T1(Cpu* cpu, Mem* mem, int t_idx) {
 
 // MCycle Creation
 MCycle idle_cycle_create() {
-  MCycle m = mcycle_new(false, 2);
+  MCycle m = mcycle_new(false, 4);
 
-  m.tcycles[0] = nop;
-  m.tcycles[1] = nop;
+  m.tcycles[0] = idle_t;
+  m.tcycles[1] = idle_t;
+  m.tcycles[2] = idle_t;
+  m.tcycles[3] = idle_t;
 
   return m;
 }
@@ -198,26 +209,25 @@ MCycle idle_cycle_create() {
 MCycle fetch_cycle_create() {
   MCycle m = mcycle_new(true, 4);
 
-  m.tcycles[0] = fetch_T0;
-  m.tcycles[1] = fetch_T1;
-  m.tcycles[2] = fetch_T2;
-  m.tcycles[3] = fetch_T3;
+  m.tcycles[0] = fetch_t0;
+  m.tcycles[1] = fetch_t1;
+  m.tcycles[2] = fetch_t2;
+  m.tcycles[3] = fetch_t3;
 
   return m;
 }
 
-MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)) {
-  g_fn = inc;
+MCycle inc_dec_16_cycle_create(void (*op)(Cpu*, Mem*)) {
+  g_fn = op;
   MCycle m = mcycle_new(false, 4);
 
-  m.tcycles[0] = increment_T0;
-  m.tcycles[1] = increment_T1;
-  m.tcycles[2] = increment_T0;
-  m.tcycles[3] = increment_T0;
+  m.tcycles[0] = idle_t;
+  m.tcycles[1] = op_high_t;
+  m.tcycles[2] = idle_t;
+  m.tcycles[3] = idle_t;
 
   return m;
 }
-
 
 // Misc Instructions
 ResultInstr build_nop(u8 opcode) {
@@ -225,12 +235,11 @@ ResultInstr build_nop(u8 opcode) {
   memset(&instr, 0, sizeof(instr));
   instr.mnemonic = "NOP";
   instr.opcode = opcode;
-  instr.mcycle_count = 2;
+  instr.mcycle_count = 1;
   instr.current_mcycle = 0;
   instr.current_tcycle = 0;
 
-  instr.mcycles[0] = idle_cycle_create();
-  instr.mcycles[1] = fetch_cycle_create();
+  instr.mcycles[0] = fetch_cycle_create();
 
   return result_ok_Instr(instr);
 }

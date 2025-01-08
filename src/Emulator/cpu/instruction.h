@@ -46,6 +46,15 @@ Result instruction_step(Cpu* cpu, Mem* mem, Instruction* instruction);
 // MCycles
 MCycle idle_cycle_create();                             // idle mcyle (think of nop)
 MCycle fetch_cycle_create();                            // fetches new opcode into IR
-MCycle increment_cycle_create(void (*inc)(Cpu*, Mem*)); // inc_rr, where register is different based on 'inc' (see instruction.c)
+MCycle inc_dec_16_cycle_create(void (*op)(Cpu*, Mem*));
+
+// tcycles
+void fetch_t0(Cpu* cpu, Mem* mem, int t_idx);
+void fetch_t1(Cpu* cpu, Mem* mem, int t_idx);
+void fetch_t2(Cpu* cpu, Mem* mem, int t_idx);
+void fetch_t3(Cpu* cpu, Mem* mem, int t_idx);
+
+void op_high_t(Cpu* cpu, Mem* mem, int t_idx);
+
 
 #endif // !INSTRUCTION_H

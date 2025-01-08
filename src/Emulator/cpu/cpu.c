@@ -157,7 +157,6 @@ Result cpu_step(Cpu* cpu) {
     g_hasInstr     = true;
 
     LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, cpu->registers[PC].v);
-
   }
 
   Result r = instruction_step(cpu, cpu->mem, &g_currentInstr);

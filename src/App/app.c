@@ -28,6 +28,13 @@ static void _test_program(Mem* mem, Cpu* cpu) {
   mem_write8(mem, cpu, 0xC0A0, 0x03);
   mem_write8(mem, cpu, 0xC0A1, 0x13);
   mem_write8(mem, cpu, 0xC0A2, 0x23);
+  mem_write8(mem, cpu, 0xC0A3, 0x33);
+
+  mem_write8(mem, cpu, 0xC0A4, 0x08);
+  mem_write8(mem, cpu, 0xC0A5, 0x18);
+  mem_write8(mem, cpu, 0xC0A6, 0x28);
+  mem_write8(mem, cpu, 0xC0A7, 0x38);
+
   cpu->registers[PC].v = 0xC0A0;
 }
 
@@ -70,6 +77,8 @@ ResultApp app_create() {
 
   app.should_quit = false;
   app.thread_inititalized = false;
+  app.thread_running = false;
+  app.resources_valid = true;
   app.timing_mutex = SDL_CreateMutex();
   app.cpu_mutex = SDL_CreateMutex();
 
@@ -119,18 +128,36 @@ ResultApp app_create() {
 void app_destroy(App *app) {
   if (!app) return;
 
+  SDL_LockMutex(app->cpu_mutex);
+  app->should_quit = true;
+  app->resources_valid = false;
+  SDL_UnlockMutex(app->cpu_mutex);
+  
+  if (app->thread_inititalized) {
+    while (app->thread_running)
+      SDL_Delay(1);
+    int thread_return;
+    SDL_WaitThread(app->emulation_thread, &thread_return);
+    app->thread_inititalized = false;
+  }
+
   if (app->font) {
     TTF_CloseFont(app->font);
     app->font = NULL;
   }
 
   close_diagram_window(app);
-  window_destroy(&app->diagram_window);
+  close_cpu_window(app);
   window_destroy(&app->gameboy_window);
 
   if (app->cpu) {
     free(app->cpu);
     app->cpu = NULL;
+  }
+
+  if (app->mem) {
+    free(app->mem);
+    app->mem = NULL;
   }
 
   SDL_DestroyMutex(app->timing_mutex);
@@ -323,40 +350,46 @@ static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
 static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
 
 static int emulation_thread_func(void* data) {
-    App* app = (App*)data;
-    u64 last_time = SDL_GetTicks64();
-    u64 cycles = 0;
-    
-    while (!app->should_quit) {
-        if (app->auto_run && !app->paused) {
-            // Lock CPU state
-            SDL_LockMutex(app->cpu_mutex);
-            cpu_clock_tick(app->cpu);
-            
-            // Update timing history under mutex protection
-            SDL_LockMutex(app->timing_mutex);
-            update_timing_history(app);
-            SDL_UnlockMutex(app->timing_mutex);
-            
-            SDL_UnlockMutex(app->cpu_mutex);
-            
-            cycles++;
-            
-            // Calculate performance every second
-            u64 current_time = SDL_GetTicks64();
-            if (current_time - last_time >= 1000) {
-                app->cycles_per_second = cycles;
-                app->last_cycle_count = cycles;
-                app->last_cycle_time = current_time - last_time;
-                cycles = 0;
-                last_time = current_time;
-            }
-        } else {
-            SDL_Delay(1);  // Don't burn CPU when paused
-        }
+  App* app = (App*)data;
+  u64 last_time = SDL_GetTicks64();
+  u64 cycles = 0;
+
+  app->thread_running = true;
+
+  while (!app->should_quit && app->resources_valid) {
+    if (app->auto_run && !app->paused) {
+      SDL_LockMutex(app->cpu_mutex);
+
+      if (!app->resources_valid) {
+        SDL_UnlockMutex(app->cpu_mutex);
+        break;
+      }
+
+      cpu_clock_tick(app->cpu);
+
+      SDL_LockMutex(app->timing_mutex);
+      update_timing_history(app);
+      SDL_UnlockMutex(app->timing_mutex);
+
+      SDL_UnlockMutex(app->cpu_mutex);
+
+      cycles++;
+
+      u64 current_time = SDL_GetTicks64();
+      if (current_time - last_time >= 1000) {
+        app->cycles_per_second = cycles;
+        app->last_cycle_count = cycles;
+        app->last_cycle_time = current_time - last_time;
+        cycles = 0;
+        last_time = current_time;
+      }
+    } else {
+      SDL_Delay(1);  
     }
-    
-    return 0;
+  }
+
+  app->thread_running = false;
+  return 0;
 }
 
 Result app_run(App* app) {
@@ -474,7 +507,7 @@ static void draw_clock_cycle(SDL_Renderer* r, int x, int y, int width) {
   int half = width / 2;
   draw_signal_line(r, x, y, half, true);
   draw_signal_line(r, x + half, y, half, false);
-    
+
   SDL_RenderDrawLine(r, x, y + 20, x, y);
   SDL_RenderDrawLine(r, x + half, y, x + half, y + 20);
   SDL_RenderDrawLine(r, x + width, y + 20, x + width, y);
