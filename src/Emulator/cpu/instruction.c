@@ -14,6 +14,11 @@ void idle_t(Cpu* cpu, Mem* mem, int t_idx) {
   return;
 }
 
+void idle_reset_bus_t(Cpu* cpu, Mem* mem, int t_idx) {
+  (void)cpu; (void)mem; (void)t_idx;
+  set_bus_hiz(cpu);
+}
+
 ResultInstr instruction_create(u8 opcode, const char *mnemonic, const MCycle *cycles, int mc_count) {
   Instruction instr;
   memset(&instr, 0, sizeof(instr));
@@ -132,10 +137,7 @@ void fetch_t0(Cpu* cpu, Mem* mem, int t_idx) {
   u16 addr = cpu->registers[PC].v;
 
   if (cpu->clock_phase == CLOCK_RISING) {
-    for (int i = 0; i < 16; i++) {
-      u16 bit = (addr >> i) & 1;
-      cpu->addr_bus[i].state = bit ? PIN_HIGH : PIN_LOW;
-    }
+    set_addr_bus_value(cpu, addr);
   }
 
   else if (cpu->clock_phase == CLOCK_HIGH) {
@@ -187,10 +189,10 @@ void fetch_t3(Cpu* cpu, Mem* mem, int t_idx) {
 }
 
 // Operation on HIGH clock
-void op_high_t(Cpu* cpu, Mem* mem, int t_idx) {
+void inc_dec_t(Cpu* cpu, Mem* mem, int t_idx) {
   (void)cpu; (void)mem; (void)t_idx;
 
-  if (cpu->clock_phase == CLOCK_HIGH)
+  if (cpu->clock_phase == CLOCK_RISING) 
     if (g_fn) g_fn(cpu, mem);
 }
 
@@ -222,9 +224,9 @@ MCycle inc_dec_16_cycle_create(void (*op)(Cpu*, Mem*)) {
   MCycle m = mcycle_new(false, 4);
 
   m.tcycles[0] = idle_t;
-  m.tcycles[1] = op_high_t;
+  m.tcycles[1] = inc_dec_t;
   m.tcycles[2] = idle_t;
-  m.tcycles[3] = idle_t;
+  m.tcycles[3] = idle_reset_bus_t;
 
   return m;
 }

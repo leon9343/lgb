@@ -5,15 +5,54 @@
 #include <util.h>
 #include <string.h>
 
-void inc_BC(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[BC].v++; }
-void inc_DE(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[DE].v++; }
-void inc_HL(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[HL].v++; }
-void inc_SP(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[SP].v++; }
+void inc_BC(Cpu* cpu, Mem* _mem) { 
+  (void)_mem; 
+  set_addr_bus_value(cpu, cpu->registers[BC].v);
+  cpu->registers[BC].v++; 
+}
 
-void dec_BC(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[BC].v--; }
-void dec_DE(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[DE].v--; }
-void dec_HL(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[HL].v--; }
-void dec_SP(Cpu* cpu, Mem* _mem) { (void)_mem; cpu->registers[SP].v--; }
+void inc_DE(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[DE].v);
+  cpu->registers[DE].v++;
+}
+
+void inc_HL(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[HL].v);
+  cpu->registers[HL].v++;
+}
+
+void inc_SP(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[SP].v);
+  cpu->registers[SP].v++;
+}
+
+void dec_BC(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[BC].v);
+  cpu->registers[BC].v--;
+}
+
+void dec_DE(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[DE].v);
+  cpu->registers[DE].v--;
+}
+
+void dec_HL(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[HL].v);
+  cpu->registers[HL].v--;
+}
+
+void dec_SP(Cpu* cpu, Mem* _mem) {
+  (void)_mem;
+  set_addr_bus_value(cpu, cpu->registers[SP].v);
+  cpu->registers[SP].v--;
+}
+
 
 ResultInstr build_inc_dec_r16(u8 opcode) {
   Instruction instr;

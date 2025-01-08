@@ -12,3 +12,25 @@ void set_bus_hiz(Cpu* cpu) {
     pin_set_hiz(&cpu->data_bus[i]);
   }
 }
+
+void set_addr_bus_value(Cpu* cpu, u16 value) {
+  for (int i = 0; i < 16; i++) {
+    u16 bit = (value >> i) & 1;
+
+    if (bit)
+      pin_set_high(&cpu->addr_bus[i]);
+    else 
+      pin_set_low(&cpu->addr_bus[i]);
+  }  
+}
+
+void set_data_bus_value(Cpu* cpu, u8 value) {
+  for (int i = 0; i < 8; i++) {
+    u8 bit = (value >> i) & 1;
+
+    if (bit)
+      pin_set_high(&cpu->data_bus[i]);
+    else 
+      pin_set_low(&cpu->data_bus[i]);
+  }  
+}

@@ -1,6 +1,7 @@
 #include "app.h"
 #include "App/window.h"
-#include "Emulator/mem.h"
+#include <Emulator/cpu/cpu.h>
+#include <Emulator/mem.h>
 #include "input.h"
 #include <SDL_ttf.h>
 #include <llog.h>
@@ -8,20 +9,33 @@
 #include <util.h>
 #include <string.h>
 
-#include <Emulator/cpu/cpu.h>
 
 static SDL_Color COLOR_GRAY  = {128, 128, 128, 255};
 static SDL_Color COLOR_GREEN = {0,   255, 0,   255};
 static SDL_Color COLOR_WHITE = {255, 255, 255, 255};
 
+// Helper
+static void handle_events(App* app);
+
+// Window Creation/Destruction
 static Result create_gameboy_window(App* app);
-
 static Result create_diagram_window(App* app);
+static void   close_diagram_window(App* app);
 static Result create_cpu_window(App* app);
-static void  close_diagram_window(App* app);
-static void  close_cpu_window(App* app);
-
+static void   close_cpu_window(App* app);
 static int emulation_thread_func(void* data);
+
+// Helper function for diagram window
+static void draw_text(SDL_Renderer* r, TTF_Font* font, int x, int y, const char* text, SDL_Color color);
+static SDL_Color pin_color(EPinState state);
+static void draw_pin_label(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* pin);
+static void draw_bus_value(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* bus_pins, int bit_count);
+static void draw_signal_line(SDL_Renderer* r, int x, int y, int width, bool high);
+static void draw_clock_cycle(SDL_Renderer* r, int x, int y, int width);
+
+static void draw_timing_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
+static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
+static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
 
 static void _test_program(Mem* mem, Cpu* cpu) {
   // TEST 
@@ -167,6 +181,59 @@ void app_destroy(App *app) {
   TTF_Quit();
 
   LOG_TRACE("app destroyed successfully");
+}
+
+Result app_run(App* app) {
+  if (!app) {
+    return result_error(Error_NullPointer, "Null App pointer in app_run");
+  }
+
+  if (!app->thread_inititalized) {
+    app->emulation_thread = SDL_CreateThread(emulation_thread_func, 
+                                             "EmulationThread", 
+                                             app);
+    app->thread_inititalized = true;
+  }
+
+  while (app->running) {
+    handle_events(app);
+
+    if (app->auto_run && !app->paused) {
+      cpu_clock_tick(app->cpu);
+      update_timing_history(app);
+    }
+
+    // Rendering
+    SDL_SetRenderDrawColor(app->gameboy_window.renderer, 0, 0, 0, 255);
+    SDL_RenderClear(app->gameboy_window.renderer);
+    window_draw(&app->gameboy_window);
+
+    if (app->diagram_window_open) {
+      SDL_SetRenderDrawColor(app->diagram_window.renderer, 40, 40, 40, 255);
+      SDL_RenderClear(app->diagram_window.renderer);
+
+      SDL_LockMutex(app->cpu_mutex);
+      SDL_LockMutex(app->timing_mutex);
+      draw_cpu_diagram(app->diagram_window.renderer, app->font, app);
+      SDL_UnlockMutex(app->timing_mutex);
+      SDL_UnlockMutex(app->cpu_mutex);
+
+      window_draw(&app->diagram_window);
+    }
+
+    if (app->cpu_window_open) {
+      SDL_SetRenderDrawColor(app->cpu_window.renderer, 40, 40, 40, 255);
+      SDL_RenderClear(app->cpu_window.renderer);
+
+      draw_cpu_registers(app->cpu_window.renderer, app->font, app->cpu);
+
+      window_draw(&app->cpu_window);
+    }
+
+    SDL_Delay(16);
+  }
+
+  return result_ok();
 }
 
 static Result create_gameboy_window(App* app) {
@@ -337,18 +404,6 @@ static void handle_events(App* app) {
   }
 }
 
-// Helper function for diagram window
-static void draw_text(SDL_Renderer* r, TTF_Font* font, int x, int y, const char* text, SDL_Color color);
-static SDL_Color pin_color(EPinState state);
-static void draw_pin_label(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* pin);
-static void draw_bus_value(SDL_Renderer* r, TTF_Font* font, int x, int y, Pin* bus_pins, int bit_count);
-static void draw_signal_line(SDL_Renderer* r, int x, int y, int width, bool high);
-static void draw_clock_cycle(SDL_Renderer* r, int x, int y, int width);
-
-static void draw_timing_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
-static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
-static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
-
 static int emulation_thread_func(void* data) {
   App* app = (App*)data;
   u64 last_time = SDL_GetTicks64();
@@ -392,58 +447,6 @@ static int emulation_thread_func(void* data) {
   return 0;
 }
 
-Result app_run(App* app) {
-  if (!app) {
-    return result_error(Error_NullPointer, "Null App pointer in app_run");
-  }
-
-  if (!app->thread_inititalized) {
-    app->emulation_thread = SDL_CreateThread(emulation_thread_func, 
-                                             "EmulationThread", 
-                                             app);
-    app->thread_inititalized = true;
-  }
-
-  while (app->running) {
-    handle_events(app);
-
-    if (app->auto_run && !app->paused) {
-      cpu_clock_tick(app->cpu);
-      update_timing_history(app);
-    }
-
-    // Rendering
-    SDL_SetRenderDrawColor(app->gameboy_window.renderer, 0, 0, 0, 255);
-    SDL_RenderClear(app->gameboy_window.renderer);
-    window_draw(&app->gameboy_window);
-
-    if (app->diagram_window_open) {
-      SDL_SetRenderDrawColor(app->diagram_window.renderer, 40, 40, 40, 255);
-      SDL_RenderClear(app->diagram_window.renderer);
-
-      SDL_LockMutex(app->cpu_mutex);
-      SDL_LockMutex(app->timing_mutex);
-      draw_cpu_diagram(app->diagram_window.renderer, app->font, app);
-      SDL_UnlockMutex(app->timing_mutex);
-      SDL_UnlockMutex(app->cpu_mutex);
-
-      window_draw(&app->diagram_window);
-    }
-
-    if (app->cpu_window_open) {
-      SDL_SetRenderDrawColor(app->cpu_window.renderer, 40, 40, 40, 255);
-      SDL_RenderClear(app->cpu_window.renderer);
-
-      draw_cpu_registers(app->cpu_window.renderer, app->font, app->cpu);
-
-      window_draw(&app->cpu_window);
-    }
-
-    SDL_Delay(16);
-  }
-
-  return result_ok();
-}
 
 static void draw_text(SDL_Renderer* r, TTF_Font* font, int x, int y, const char* text, SDL_Color color) {
   if (!text || !font) {

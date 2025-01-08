@@ -54,7 +54,4 @@ void fetch_t1(Cpu* cpu, Mem* mem, int t_idx);
 void fetch_t2(Cpu* cpu, Mem* mem, int t_idx);
 void fetch_t3(Cpu* cpu, Mem* mem, int t_idx);
 
-void op_high_t(Cpu* cpu, Mem* mem, int t_idx);
-
-
 #endif // !INSTRUCTION_H

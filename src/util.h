@@ -51,5 +51,7 @@ void pin_set_low(Pin* pin);
 void pin_set_high(Pin* pin);
 void pin_set_hiz (Pin* pin);
 void set_bus_hiz(Cpu* cpu);
+void set_addr_bus_value(Cpu* cpu, u16 value);
+void set_data_bus_value(Cpu* cpu, u8 value);
 
 #endif // !UTIL_H
