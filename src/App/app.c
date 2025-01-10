@@ -14,9 +14,6 @@ static SDL_Color COLOR_GRAY  = {128, 128, 128, 255};
 static SDL_Color COLOR_GREEN = {0,   255, 0,   255};
 static SDL_Color COLOR_WHITE = {255, 255, 255, 255};
 
-// Helper
-static void handle_events(App* app);
-
 // Window Creation/Destruction
 static Result create_gameboy_window(App* app);
 static Result create_diagram_window(App* app);
@@ -39,15 +36,12 @@ static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
 
 static void _test_program(Mem* mem, Cpu* cpu) {
   // TEST 
-  mem_write8(mem, cpu, 0xC0A0, 0x03);
-  mem_write8(mem, cpu, 0xC0A1, 0x13);
-  mem_write8(mem, cpu, 0xC0A2, 0x23);
-  mem_write8(mem, cpu, 0xC0A3, 0x33);
 
-  mem_write8(mem, cpu, 0xC0A4, 0x08);
-  mem_write8(mem, cpu, 0xC0A5, 0x18);
-  mem_write8(mem, cpu, 0xC0A6, 0x28);
-  mem_write8(mem, cpu, 0xC0A7, 0x38);
+  // LD r8 IMM
+  mem_write8(mem, cpu, 0xC0A0, 0x06);
+  mem_write8(mem, cpu, 0xC0A1, 0xAA);
+  mem_write8(mem, cpu, 0xC0A2, 0x16);
+  mem_write8(mem, cpu, 0xC0A3, 0xBB);
 
   cpu->registers[PC].v = 0xC0A0;
 }
@@ -57,13 +51,8 @@ void update_timing_history(App* app) {
     .phase     = app->cpu->clock_phase,
     .mem_read  = app->cpu->pin_RD.state == PIN_LOW,
     .mem_write = app->cpu->pin_WR.state == PIN_LOW,
-    .mem_addr  = 0
+    .mem_addr  = app->cpu->addr_value
   };
-
-  for (int i = 0; i < 16; i++) {
-    if (app->cpu->addr_bus[i].state == PIN_HIGH)
-      current.mem_addr |= (1 << i);
-  }
 
   app->timing_history[app->timing_history_pos] = current;
   app->timing_history_pos = (app->timing_history_pos + 1) % MAX_TIMING_HISTORY;
@@ -71,11 +60,10 @@ void update_timing_history(App* app) {
 
 ResultApp app_create() {
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
-    return result_err_App(AppError_SDL_Init, "failed to init SDL: %s", SDL_GetError());
+    return result_err_App(AppError_SDL_Init, "SDL init failed: %s", SDL_GetError());
   }
-
   if (TTF_Init() != 0) {
-    return result_err_App(AppError_TTF_Init, "failed to init TTF: %s", TTF_GetError());
+    return result_err_App(AppError_TTF_Init, "TTF init failed: %s", TTF_GetError());
   }
 
   App app;
@@ -83,20 +71,21 @@ ResultApp app_create() {
   app.running = true;
   app.paused = true;
   app.auto_run = false;
-  app.active_window = EAppWindow_None;
-  app.diagram_window_open = false;
-  app.cpu_window_open = false;
-
-  app.timing_history_pos = 0;
-
-  app.should_quit = false;
-  app.thread_inititalized = false;
-  app.thread_running = false;
   app.resources_valid = true;
-  app.timing_mutex = SDL_CreateMutex();
-  app.cpu_mutex = SDL_CreateMutex();
 
-  app.font = TTF_OpenFont("/usr/share/fonts/open-sans/OpenSans-Regular.ttf", 14);  // Default
+  app.cpu_mutex = SDL_CreateMutex();
+  app.timing_mutex = SDL_CreateMutex();
+
+  WindowProps props = {
+    .title  = "GameBoy",
+    .x      = SDL_WINDOWPOS_CENTERED,
+    .y      = SDL_WINDOWPOS_CENTERED,
+    .width  = 320,
+    .height = 288,
+    .flags  = 0
+  };
+
+  app.font = TTF_OpenFont("/usr/share/fonts/open-sans/OpenSans-Regular.ttf", 14);
   if (!app.font) {
     SDL_Quit();
     TTF_Quit();
@@ -109,28 +98,34 @@ ResultApp app_create() {
     TTF_Quit();
     return result_err_App(res_gb.error_code,
                           "Could not create GameBoy window: %s",
-                          error_string(res_gb.error_code));
+                          error_string(res_gb.error_code));   
   }
   app.active_window = EAppWindow_GameBoy;
 
   app.mem = malloc(sizeof(Mem));
+  if (!app.mem) {
+    return result_err_App(Error_NullPointer, "No mem for Mem struct");
+  }
   Result res_mem = mem_init(app.mem);
   if (result_is_error(&res_mem)) {
     SDL_Quit();
     TTF_Quit();
     return result_err_App(res_mem.error_code,
                           "Could not create mem instance: %s",
-                          error_string(res_mem.error_code));
+                          error_string(res_mem.error_code));    
   }
 
   app.cpu = malloc(sizeof(Cpu));
+  if (!app.cpu) {
+    return result_err_App(Error_NullPointer, "No mem for Cpu struct");
+  }
   Result res_cpu = cpu_init(app.cpu, app.mem);
   if (result_is_error(&res_cpu)) {
     SDL_Quit();
     TTF_Quit();
     return result_err_App(res_cpu.error_code,
                           "Could not create cpu instance: %s",
-                          error_string(res_cpu.error_code));
+                          error_string(res_cpu.error_code));    
   }
 
   _test_program(app.mem, app.cpu);
@@ -146,7 +141,7 @@ void app_destroy(App *app) {
   app->should_quit = true;
   app->resources_valid = false;
   SDL_UnlockMutex(app->cpu_mutex);
-  
+
   if (app->thread_inititalized) {
     while (app->thread_running)
       SDL_Delay(1);
@@ -192,18 +187,18 @@ Result app_run(App* app) {
     app->emulation_thread = SDL_CreateThread(emulation_thread_func, 
                                              "EmulationThread", 
                                              app);
-    app->thread_inititalized = true;
+    app->thread_inititalized = (app->emulation_thread != NULL);
   }
 
   while (app->running) {
-    handle_events(app);
+    handle_input(app);
 
     if (app->auto_run && !app->paused) {
-      cpu_clock_tick(app->cpu);
+      SDL_LockMutex(app->timing_mutex);
       update_timing_history(app);
+      SDL_UnlockMutex(app->timing_mutex);
     }
 
-    // Rendering
     SDL_SetRenderDrawColor(app->gameboy_window.renderer, 0, 0, 0, 255);
     SDL_RenderClear(app->gameboy_window.renderer);
     window_draw(&app->gameboy_window);
@@ -331,84 +326,10 @@ static void close_cpu_window(App* app) {
   app->cpu_window_open = false;
 }
 
-static void handle_events(App* app) {
-  SDL_Event e;
-  while (SDL_PollEvent(&e)) {
-    u32 window_id = (e.type == SDL_WINDOWEVENT || e.type == SDL_KEYDOWN || e.type == SDL_QUIT)
-      ? e.window.windowID
-      : 0;
-
-    if (window_id == SDL_GetWindowID(app->gameboy_window.window)) {
-      app-> active_window = EAppWindow_GameBoy;
-    }
-    else if (app->diagram_window_open &&
-      window_id == SDL_GetWindowID(app->diagram_window.window)) {
-      app->active_window = EAppWindow_Diagram;
-    }
-    else if (app->cpu_window_open &&
-      window_id == SDL_GetWindowID(app->cpu_window.window)) {
-      app->active_window = EAppWindow_Cpu;
-    }
-
-
-    EInputCode code = handle_input(app, &e);
-    switch (code) {
-      case ICODE_QUIT_ACTIVE:
-        if (app->active_window == EAppWindow_GameBoy) {
-          app->running = false;
-        } else if (app->active_window == EAppWindow_Diagram) {
-          close_diagram_window(app);
-          app->active_window = EAppWindow_GameBoy;
-        } else if (app->active_window == EAppWindow_Cpu) {
-          close_cpu_window(app);
-          app->active_window = EAppWindow_GameBoy;
-        }
-        break;
-
-      case ICODE_OPEN_DIAGRAM: {
-        if (!app->diagram_window_open) {
-          Result r = create_diagram_window(app);
-          if (result_is_error(&r)) {
-            LOG_ERROR("failed to open diagram window: %s (%s)",
-                      r.message, error_string(r.error_code));
-          } else {
-            app->active_window = EAppWindow_Diagram;
-          }
-        } else {
-          app->active_window = EAppWindow_Diagram;
-        }
-      } 
-        break;
-
-      case ICODE_OPEN_CPU: {
-        if (!app->cpu_window_open) {
-          Result r = create_cpu_window(app);
-          if (result_is_error(&r)) {
-            LOG_ERROR("failed to open cpu window: %s (%s)",
-                      r.message, error_string(r.error_code));
-          } else {
-            app->active_window = EAppWindow_Cpu;
-          }
-        } else {
-          app->active_window = EAppWindow_Cpu;
-        }
-      } 
-        break;
-
-      case ICODE_NONE:
-      case ICODE_SHOW_HELP:
-      case ICODE_UNKNOWN:
-      default:
-        break;
-    }
-  }
-}
-
 static int emulation_thread_func(void* data) {
   App* app = (App*)data;
   u64 last_time = SDL_GetTicks64();
   u64 cycles = 0;
-
   app->thread_running = true;
 
   while (!app->should_quit && app->resources_valid) {
@@ -419,7 +340,6 @@ static int emulation_thread_func(void* data) {
         SDL_UnlockMutex(app->cpu_mutex);
         break;
       }
-
       cpu_clock_tick(app->cpu);
 
       SDL_LockMutex(app->timing_mutex);
@@ -429,14 +349,11 @@ static int emulation_thread_func(void* data) {
       SDL_UnlockMutex(app->cpu_mutex);
 
       cycles++;
-
-      u64 current_time = SDL_GetTicks64();
-      if (current_time - last_time >= 1000) {
+      u64 now = SDL_GetTicks64();
+      if (now - last_time >= 1000) {
         app->cycles_per_second = cycles;
-        app->last_cycle_count = cycles;
-        app->last_cycle_time = current_time - last_time;
         cycles = 0;
-        last_time = current_time;
+        last_time = now;
       }
     } else {
       SDL_Delay(1);  

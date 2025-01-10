@@ -1,58 +1,63 @@
 #include "inc_dec_r16.h"
-#include "Emulator/cpu/instruction.h"
-#include "Emulator/mem.h"
 #include <types.h>
 #include <util.h>
 #include <string.h>
 
-void inc_BC(Cpu* cpu, Mem* _mem) { 
+static void (*g_fn)(Cpu*, Mem*) = NULL;
+
+void inc_dec_t(Cpu* cpu, Mem* mem) {
+
+  if (cpu->clock_phase == CLOCK_RISING) 
+    if (g_fn) g_fn(cpu, mem);
+}
+
+static void inc_BC(Cpu* cpu, Mem* _mem) { 
   (void)_mem; 
   set_addr_bus_value(cpu, cpu->registers[BC].v);
   cpu->registers[BC].v++; 
 }
 
-void inc_DE(Cpu* cpu, Mem* _mem) {
+static void inc_DE(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[DE].v);
   cpu->registers[DE].v++;
 }
 
-void inc_HL(Cpu* cpu, Mem* _mem) {
+static void inc_HL(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[HL].v);
   cpu->registers[HL].v++;
 }
 
-void inc_SP(Cpu* cpu, Mem* _mem) {
+static void inc_SP(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[SP].v);
   cpu->registers[SP].v++;
 }
 
-void dec_BC(Cpu* cpu, Mem* _mem) {
+static void dec_BC(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[BC].v);
   cpu->registers[BC].v--;
 }
 
-void dec_DE(Cpu* cpu, Mem* _mem) {
+static void dec_DE(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[DE].v);
   cpu->registers[DE].v--;
 }
 
-void dec_HL(Cpu* cpu, Mem* _mem) {
+static void dec_HL(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[HL].v);
   cpu->registers[HL].v--;
 }
 
-void dec_SP(Cpu* cpu, Mem* _mem) {
+static void dec_SP(Cpu* cpu, Mem* _mem) {
   (void)_mem;
   set_addr_bus_value(cpu, cpu->registers[SP].v);
   cpu->registers[SP].v--;
 }
-
 
 ResultInstr build_inc_dec_r16(u8 opcode) {
   Instruction instr;
@@ -105,3 +110,16 @@ ResultInstr build_inc_dec_r16(u8 opcode) {
 
   return result_ok_Instr(instr);
 }
+
+MCycle inc_dec_16_cycle_create(void (*op)(Cpu*, Mem*)) {
+  g_fn = op;
+  MCycle m = mcycle_new(false, 4);
+
+  m.tcycles[0] = idle_t;
+  m.tcycles[1] = inc_dec_t;
+  m.tcycles[2] = idle_t;
+  m.tcycles[3] = idle_reset_bus_t;
+
+  return m;
+}
+

@@ -46,7 +46,9 @@ typedef struct {
 
 typedef struct Cpu {
   Pin addr_bus[16];
+  u16 addr_value;
   Pin data_bus[8];
+  u8 data_value;
 
   Pin pin_X0;
   Pin pin_X1;

@@ -27,11 +27,13 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
     snprintf(buf, sizeof(buf), "A%d", i);
     init_pin(&cpu->addr_bus[i], buf, PIN_INOUT, PIN_HIGHZ);
   }
+  cpu->addr_value = 0;
   for (int i = 0; i < 8; i++) {
     char buf[8];
     snprintf(buf, sizeof(buf), "D%d", i);
     init_pin(&cpu->data_bus[i], buf, PIN_INOUT, PIN_HIGHZ);
   }
+  cpu->data_value = 0;
 
   init_pin(&cpu->pin_X0,  "X0",  PIN_INPUT,  PIN_LOW); 
   init_pin(&cpu->pin_X1,  "X1",  PIN_INPUT,  PIN_LOW);
@@ -147,6 +149,7 @@ Result cpu_step(Cpu* cpu) {
 
   if (!g_hasInstr && cpu->clock_phase == CLOCK_LOW) {
     ResultInstr rdec = instruction_decode(cpu->IR);
+
     if (result_Instr_is_err(&rdec)) {
       LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v);
       g_hasInstr = false;

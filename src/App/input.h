@@ -12,10 +12,11 @@ typedef enum {
   ICODE_OPEN_DIAGRAM,
   ICODE_OPEN_CPU,
   ICODE_QUIT_ACTIVE,
+  ICODE_STEP,
+  ICODE_AUTO,
   ICODE_UNKNOWN
 } EInputCode;
 
-// Returns an EInputCode depending on the pressed keys
-EInputCode handle_input(struct App* app, SDL_Event* e);
+void handle_input(struct App* app);
 
 #endif // !INPUT_H

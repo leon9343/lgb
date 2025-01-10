@@ -14,6 +14,7 @@ void set_bus_hiz(Cpu* cpu) {
 }
 
 void set_addr_bus_value(Cpu* cpu, u16 value) {
+  cpu->addr_value = value;
   for (int i = 0; i < 16; i++) {
     u16 bit = (value >> i) & 1;
 
@@ -25,6 +26,7 @@ void set_addr_bus_value(Cpu* cpu, u16 value) {
 }
 
 void set_data_bus_value(Cpu* cpu, u8 value) {
+  cpu->data_value = value;
   for (int i = 0; i < 8; i++) {
     u8 bit = (value >> i) & 1;
 
