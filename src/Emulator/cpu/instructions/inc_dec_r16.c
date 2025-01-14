@@ -3,60 +3,23 @@
 #include <util.h>
 #include <string.h>
 
-static void (*g_fn)(Cpu*, Mem*) = NULL;
+static void inc_dec_r16_t(Cpu* cpu, Mem* mem) {
+  (void)mem;
 
-void inc_dec_t(Cpu* cpu, Mem* mem) {
+  if (cpu->clock_phase == CLOCK_RISING) {
+    u16* reg_ptr = cpu_get_reg16_opcode(cpu, cpu->IR);
+    if (!reg_ptr) return;
 
-  if (cpu->clock_phase == CLOCK_RISING) 
-    if (g_fn) g_fn(cpu, mem);
-}
+    set_addr_bus_value(cpu, *reg_ptr);
 
-static void inc_BC(Cpu* cpu, Mem* _mem) { 
-  (void)_mem; 
-  set_addr_bus_value(cpu, cpu->registers[BC].v);
-  cpu->registers[BC].v++; 
-}
+    u8 low = cpu->IR & 0x0F;
+    bool is_inc = (low == 0x03);
 
-static void inc_DE(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[DE].v);
-  cpu->registers[DE].v++;
-}
-
-static void inc_HL(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[HL].v);
-  cpu->registers[HL].v++;
-}
-
-static void inc_SP(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[SP].v);
-  cpu->registers[SP].v++;
-}
-
-static void dec_BC(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[BC].v);
-  cpu->registers[BC].v--;
-}
-
-static void dec_DE(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[DE].v);
-  cpu->registers[DE].v--;
-}
-
-static void dec_HL(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[HL].v);
-  cpu->registers[HL].v--;
-}
-
-static void dec_SP(Cpu* cpu, Mem* _mem) {
-  (void)_mem;
-  set_addr_bus_value(cpu, cpu->registers[SP].v);
-  cpu->registers[SP].v--;
+    if (is_inc) 
+      (*reg_ptr)++;
+    else
+      (*reg_ptr)--;
+  }
 }
 
 ResultInstr build_inc_dec_r16(u8 opcode) {
@@ -70,36 +33,27 @@ ResultInstr build_inc_dec_r16(u8 opcode) {
   switch (opcode) {
     case 0x03:
       instr.mnemonic = "INC BC";
-      instr.mcycles[0] = inc_dec_16_cycle_create(inc_BC);
       break;
     case 0x13:
       instr.mnemonic = "INC DE";
-      instr.mcycles[0] = inc_dec_16_cycle_create(inc_DE);
       break;
     case 0x23:
       instr.mnemonic = "INC HL";
-      instr.mcycles[0] = inc_dec_16_cycle_create(inc_HL);
       break;
     case 0x33:
       instr.mnemonic = "INC SP";
-      instr.mcycles[0] = inc_dec_16_cycle_create(inc_SP);
       break;
-
     case 0x08:
       instr.mnemonic = "DEC BC";
-      instr.mcycles[0] = inc_dec_16_cycle_create(dec_BC);
       break;
     case 0x18:
       instr.mnemonic = "DEC DE";
-      instr.mcycles[0] = inc_dec_16_cycle_create(dec_DE);
       break;
     case 0x28:
       instr.mnemonic = "DEC HL";
-      instr.mcycles[0] = inc_dec_16_cycle_create(dec_HL);
       break;
     case 0x38:
       instr.mnemonic = "DEC SP";
-      instr.mcycles[0] = inc_dec_16_cycle_create(dec_SP);
       break;
 
     default:
@@ -111,12 +65,11 @@ ResultInstr build_inc_dec_r16(u8 opcode) {
   return result_ok_Instr(instr);
 }
 
-MCycle inc_dec_16_cycle_create(void (*op)(Cpu*, Mem*)) {
-  g_fn = op;
+MCycle inc_dec_16_cycle_create() {
   MCycle m = mcycle_new(false, 4);
 
   m.tcycles[0] = idle_t;
-  m.tcycles[1] = inc_dec_t;
+  m.tcycles[1] = inc_dec_r16_t;
   m.tcycles[2] = idle_t;
   m.tcycles[3] = idle_reset_bus_t;
 

@@ -7,6 +7,7 @@
 #include "apu.h"
 #include <Emulator/mem.h>
 
+#define DMG_BOOTROM_SIZE 0x100
 #define CLOCK_PERIOD (1.0 / 4194304.0)
 
 typedef enum {
@@ -49,6 +50,9 @@ typedef struct Cpu {
   u16 addr_value;
   Pin data_bus[8];
   u8 data_value;
+
+  u8 temp_l;
+  u8 temp_h;
 
   Pin pin_X0;
   Pin pin_X1;
@@ -99,7 +103,8 @@ typedef struct Cpu {
   EClockPhase clock_phase;
   u64 clock_cycles;
 
-  bool bootrom_mapped; // TODO
+  bool bootrom_mapped; 
+  u8 dmg_bootrom[DMG_BOOTROM_SIZE];
 
   Ppu ppu;
   Apu apu;
@@ -110,13 +115,15 @@ typedef struct Cpu {
 // Initializes the cpu internals to default values, and links app.mem to cpu.mem (passed as argument)
 Result cpu_init(Cpu* cpu, Mem* mem);
 
+Result cpu_load_bootrom(Cpu* cpu);
+
 Result cpu_clock_tick(Cpu* cpu);
 
-// Steps the cpu by one tcycle
 Result cpu_step(Cpu* cpu);
 
 u16* cpu_get_reg16(Cpu* cpu, ERegisterFull reg);
-u8* cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf);
-u8* cpu_get_reg8_opcode(Cpu* cpu, u8 index);
+u8*  cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf);
+u16* cpu_get_reg16_opcode(Cpu* cpu, u8 index);
+u8*  cpu_get_reg8_opcode(Cpu* cpu, u8 index);
 
 #endif // !CPU_H

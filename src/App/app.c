@@ -34,16 +34,6 @@ static void draw_timing_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
 static void draw_cpu_diagram(SDL_Renderer* r, TTF_Font* font, App* app);
 static void draw_cpu_registers(SDL_Renderer* r, TTF_Font* font, Cpu* cpu);
 
-static void _test_program(Mem* mem, Cpu* cpu) {
-  // TEST 
-
-  // LD r8 IMM
-  mem_write8(mem, cpu, 0xC0A0, 0x41);
-  mem_write8(mem, cpu, 0xC0A1, 0x42);
-
-  cpu->registers[PC].v = 0xC0A0;
-}
-
 void update_timing_history(App* app) {
   TimingPoint current = {
     .phase     = app->cpu->clock_phase,
@@ -126,7 +116,14 @@ ResultApp app_create() {
                           error_string(res_cpu.error_code));    
   }
 
-  _test_program(app.mem, app.cpu);
+  Result res_load = cpu_load_bootrom(app.cpu);
+  if (result_is_error(&res_load)) {
+    SDL_Quit();
+    TTF_Quit();
+    return result_err_App(res_load.error_code,
+                          "Failed to load bootrom: %s",
+                          error_string(res_load.error_code));
+  }
 
   LOG_TRACE("app created successfully");
   return result_ok_App(app);

@@ -84,6 +84,20 @@ static MCycle ld_r8_fetch_next_cycle_create() {
   return m;
 }
 
+static const char* ld_r8_imm_mnemonic(u8 opcode) {
+  static const char* reg_names[8] = {
+    "B","C","D","E","H","L","[HL]","A"
+  };
+  static char buffer[16];
+
+  u8 dst_idx = (opcode >> 3) & 0x07;
+
+  snprintf(buffer, sizeof(buffer), "LD %s, d8",
+           reg_names[dst_idx]);
+
+  return buffer;
+}
+
 ResultInstr build_ld_r8_imm(u8 opcode) {
   Instruction instr;
   memset(&instr, 0, sizeof(instr));
@@ -92,18 +106,7 @@ ResultInstr build_ld_r8_imm(u8 opcode) {
   instr.current_tcycle = 0;
   instr.mcycle_count   = 2;
 
-  switch (opcode) {
-    case 0x06: instr.mnemonic = "LD B, d8"; break;
-    case 0x16: instr.mnemonic = "LD D, d8"; break;
-    case 0x26: instr.mnemonic = "LD H, d8"; break;
-    case 0x0E: instr.mnemonic = "LD C, d8"; break;
-    case 0x1E: instr.mnemonic = "LD E, d8"; break;
-    case 0x2E: instr.mnemonic = "LD L, d8"; break;
-    case 0x3E: instr.mnemonic = "LD A, d8"; break;
-    default:
-      return result_err_Instr(EmuError_InstrInvalid,
-        "Invalid LD r8 opcode=0x%02X", opcode);
-  }
+  instr.mnemonic = ld_r8_imm_mnemonic(opcode);
 
   instr.mcycles[0] = ld_r8_read_imm_cycle_create();
   instr.mcycles[1] = ld_r8_fetch_next_cycle_create();

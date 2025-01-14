@@ -8,6 +8,7 @@ typedef enum {
   Error_None = 0,
   Error_Unknown,
   Error_NullPointer,
+  Error_FileIO,
   AppError_SDL_Init,
   AppError_TTF_Init,
   AppError_CreateWindow,
@@ -24,6 +25,8 @@ static inline const char* error_string(int code) {
       return "No error";
     case Error_NullPointer:
       return "Null pointer";
+    case Error_FileIO:
+      return "File error";
     case AppError_SDL_Init:
       return "SDL Init failed";
     case AppError_TTF_Init:

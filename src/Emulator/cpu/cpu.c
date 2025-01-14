@@ -19,6 +19,30 @@ static void init_pin(Pin *pin, const char *name, EPinType type, EPinState defaul
   pin->state = default_state;
 }
 
+Result cpu_load_bootrom(Cpu* cpu) {
+  if (!cpu)
+    return result_error(Error_NullPointer, "invalid cpu to cpu_load_bootrom");
+
+  const char* path = "/home/leonardo/dev/EmuDev/lgb/resources/bootix_dmg.bin";
+  FILE* f = fopen(path, "rb");
+  if (!f) 
+    return result_error(Error_FileIO, "failed to open bootrom at: %s", path);
+
+  size_t bytes_read = fread(cpu->dmg_bootrom, 1, DMG_BOOTROM_SIZE, f);
+  fclose(f);
+
+  if (bytes_read < DMG_BOOTROM_SIZE) {
+    return result_error(Error_FileIO,
+                        "bootrom file is smaller than expected (%zu < %zu)",
+                        bytes_read, DMG_BOOTROM_SIZE);
+  }
+
+  cpu->bootrom_mapped = true;
+
+  LOG_TRACE("bootrom loaded successfully");
+  return result_ok();
+}
+
 Result cpu_init(Cpu* cpu, Mem* mem) {
   memset(cpu, 0, sizeof(*cpu));
 
@@ -34,6 +58,9 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
     init_pin(&cpu->data_bus[i], buf, PIN_INOUT, PIN_HIGHZ);
   }
   cpu->data_value = 0;
+
+  cpu->temp_l = 0xFF;
+  cpu->temp_h = 0xFF;
 
   init_pin(&cpu->pin_X0,  "X0",  PIN_INPUT,  PIN_LOW); 
   init_pin(&cpu->pin_X1,  "X1",  PIN_INPUT,  PIN_LOW);
@@ -88,7 +115,7 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
   cpu->registers[DE].v = 0x00D8;
   cpu->registers[HL].v = 0x014D;
   cpu->registers[SP].v = 0xFFFE;
-  cpu->registers[PC].v = 0x0100;
+  cpu->registers[PC].v = 0xFFFF;
   cpu->IR = 0x00;
 
   cpu->interrupt_enable = 0x00;
@@ -151,7 +178,7 @@ Result cpu_step(Cpu* cpu) {
     ResultInstr rdec = instruction_decode(cpu->IR);
 
     if (result_Instr_is_err(&rdec)) {
-      LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v);
+      LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v - 1);
       g_hasInstr = false;
       return result_error(rdec.error_code, "Decode Error: %s", rdec.message);
     }
@@ -159,7 +186,7 @@ Result cpu_step(Cpu* cpu) {
     g_currentInstr = result_Instr_get_data(&rdec);
     g_hasInstr     = true;
 
-    LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, cpu->registers[PC].v);
+    LOG_INFO("INSTRUCTION: (%s) at PC=0x%04X", g_currentInstr.mnemonic, cpu->registers[PC].v - 1);
   }
 
   Result r = instruction_step(cpu, cpu->mem, &g_currentInstr);
@@ -206,6 +233,19 @@ u8* cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf) {
     default:
       return NULL;
   }
+}
+
+u16* cpu_get_reg16_opcode(Cpu* cpu, u8 index) {
+  if (!cpu) return NULL;
+
+  switch ((index >> 4) & 0x03) {
+    case 0: return &cpu->registers[BC].v;
+    case 1: return &cpu->registers[DE].v;
+    case 2: return &cpu->registers[HL].v;
+    case 3: return &cpu->registers[SP].v;
+  }
+
+  return NULL;
 }
 
 u8* cpu_get_reg8_opcode(Cpu* cpu, u8 index) {

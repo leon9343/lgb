@@ -17,7 +17,15 @@ static u8 read_io_register(Cpu* cpu, u16 addr) {
 }
 
 static void write_io_register(Cpu* cpu, u16 addr, u8 val) {
-  // TODO
+  switch (addr) {
+    case 0xFF50: {
+      if (val != 0) {
+        cpu->bootrom_mapped = false;
+        LOG_TRACE("unmapped bootrom");
+      }
+      return;
+    }
+  }
 }
 
 Result mem_init(Mem *mem) {
@@ -30,6 +38,12 @@ Result mem_init(Mem *mem) {
 }
 
 u8 mem_read8(Mem *mem, Cpu *cpu, u16 addr) {
+
+  if (cpu->bootrom_mapped) {
+    if (addr < 0x0100)
+      return cpu->dmg_bootrom[addr];
+  }
+
   if (addr < 0x8000 || (addr >= 0xA000 && addr < 0xC000)) {
     LOG_WARNING("mem_read8 called with cart addr: %04X", addr);
     return 0xFF;

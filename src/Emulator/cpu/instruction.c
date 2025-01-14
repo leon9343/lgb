@@ -78,6 +78,10 @@ ResultInstr instruction_decode(u8 opcode) {
     case 0x7C: case 0x7D: case 0x7F:
       return build_ld_r8_r8(opcode);
 
+    // LD r16, d16
+    case 0x01: case 0x11: case 0x21: case 0x31:
+      return build_ld_r16_imm(opcode);
+
     // 16-bit INC/DEC
     case 0x03: case 0x13: case 0x23: case 0x33:
     case 0x08: case 0x18: case 0x28: case 0x38:
