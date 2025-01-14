@@ -38,10 +38,8 @@ static void _test_program(Mem* mem, Cpu* cpu) {
   // TEST 
 
   // LD r8 IMM
-  mem_write8(mem, cpu, 0xC0A0, 0x06);
-  mem_write8(mem, cpu, 0xC0A1, 0xAA);
-  mem_write8(mem, cpu, 0xC0A2, 0x16);
-  mem_write8(mem, cpu, 0xC0A3, 0xBB);
+  mem_write8(mem, cpu, 0xC0A0, 0x41);
+  mem_write8(mem, cpu, 0xC0A1, 0x42);
 
   cpu->registers[PC].v = 0xC0A0;
 }

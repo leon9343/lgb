@@ -115,4 +115,8 @@ Result cpu_clock_tick(Cpu* cpu);
 // Steps the cpu by one tcycle
 Result cpu_step(Cpu* cpu);
 
+u16* cpu_get_reg16(Cpu* cpu, ERegisterFull reg);
+u8* cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf);
+u8* cpu_get_reg8_opcode(Cpu* cpu, u8 index);
+
 #endif // !CPU_H

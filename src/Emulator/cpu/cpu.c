@@ -173,3 +173,61 @@ Result cpu_step(Cpu* cpu) {
 
   return result_ok();
 }
+
+u16* cpu_get_reg16(Cpu* cpu, ERegisterFull reg) {
+  if (!cpu) return NULL;
+  switch (reg) {
+    case AF: return &cpu->registers[AF].v;
+    case BC: return &cpu->registers[BC].v;
+    case DE: return &cpu->registers[DE].v;
+    case HL: return &cpu->registers[HL].v;
+    case SP: return &cpu->registers[SP].v;
+    case PC: return &cpu->registers[PC].v;
+    default:
+      return NULL;
+  }
+}
+
+u8* cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf) {
+  if (!cpu) return NULL;
+  switch (regHalf) {
+    case A:   return &cpu->registers[AF].bytes.h;
+    case F:   return &cpu->registers[AF].bytes.l;
+    case B:   return &cpu->registers[BC].bytes.h;
+    case C:   return &cpu->registers[BC].bytes.l;
+    case D:   return &cpu->registers[DE].bytes.h;
+    case E:   return &cpu->registers[DE].bytes.l;
+    case H:   return &cpu->registers[HL].bytes.h;
+    case L:   return &cpu->registers[HL].bytes.l;
+    case SPL: return &cpu->registers[SP].bytes.l; 
+    case SPH: return &cpu->registers[SP].bytes.h; 
+    case PCL: return &cpu->registers[PC].bytes.l; 
+    case PCH: return &cpu->registers[PC].bytes.h;
+    default:
+      return NULL;
+  }
+}
+
+u8* cpu_get_reg8_opcode(Cpu* cpu, u8 index) {
+  if (!cpu) return NULL;
+  switch (index & 0x07) {
+    case 0: 
+      return &cpu->registers[BC].bytes.h;
+    case 1: 
+      return &cpu->registers[BC].bytes.l;
+    case 2: 
+      return &cpu->registers[DE].bytes.h;
+    case 3: 
+      return &cpu->registers[DE].bytes.l;
+    case 4: 
+      return &cpu->registers[HL].bytes.h;
+    case 5: 
+      return &cpu->registers[HL].bytes.l;
+    case 6: 
+      return NULL;
+    case 7: 
+      return &cpu->registers[AF].bytes.h;
+    default:
+      return NULL;
+  }
+}
