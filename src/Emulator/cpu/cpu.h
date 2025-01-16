@@ -35,6 +35,13 @@ typedef enum {
   PCL, PCH
 } ERegisterHalf;
 
+typedef enum {
+  FC = 0,
+  FH,
+  FN,
+  FZ
+} EFlag;
+
 typedef struct {
   union {
     u16 v;
@@ -121,9 +128,13 @@ Result cpu_clock_tick(Cpu* cpu);
 
 Result cpu_step(Cpu* cpu);
 
+void cpu_set_flag(Cpu* cpu, EFlag flag, bool value);
+bool cpu_get_flag(Cpu* cpu, EFlag flag);
+
 u16* cpu_get_reg16(Cpu* cpu, ERegisterFull reg);
 u8*  cpu_get_reg8(Cpu* cpu, ERegisterHalf regHalf);
 u16* cpu_get_reg16_opcode(Cpu* cpu, u8 index);
+u16* cpu_get_reg16mem_opcode(Cpu* cpu, u8 index);
 u8*  cpu_get_reg8_opcode(Cpu* cpu, u8 index);
 
 #endif // !CPU_H

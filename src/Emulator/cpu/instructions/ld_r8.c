@@ -11,7 +11,7 @@ static void ld_r8_readimm_t0(Cpu* cpu, Mem* mem) {
     set_addr_bus_value(cpu, cpu->registers[PC].v);
   } else if (cpu->clock_phase == CLOCK_HIGH) {
     pin_set_low(&cpu->pin_MCS);
-pin_set_high(&cpu->pin_RD);
+    pin_set_high(&cpu->pin_RD);
     pin_set_high(&cpu->pin_WR);
   }
 }

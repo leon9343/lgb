@@ -201,6 +201,26 @@ Result cpu_step(Cpu* cpu) {
   return result_ok();
 }
 
+void cpu_set_flag(Cpu* cpu, EFlag flag, bool value) {
+  u8 f = cpu->registers[AF].bytes.l;
+  
+  f = f >> 4;
+  f |= (1 << flag);
+  f = f << 4;
+
+  cpu->registers[AF].bytes.l = f;
+}
+
+bool cpu_get_flag(Cpu* cpu, EFlag flag) {
+  u8 f = cpu->registers[AF].bytes.l;
+  bool v = false;
+
+  f = f >> 4;
+  v = ((f & (1 << flag)) & 0x0F) != 0 ? true : false;
+
+  return v;
+}
+
 u16* cpu_get_reg16(Cpu* cpu, ERegisterFull reg) {
   if (!cpu) return NULL;
   switch (reg) {
@@ -243,6 +263,19 @@ u16* cpu_get_reg16_opcode(Cpu* cpu, u8 index) {
     case 1: return &cpu->registers[DE].v;
     case 2: return &cpu->registers[HL].v;
     case 3: return &cpu->registers[SP].v;
+  }
+
+  return NULL;
+}
+
+u16* cpu_get_reg16mem_opcode(Cpu* cpu, u8 index) {
+  if (!cpu) return NULL;
+
+  switch ((index >> 4) & 0x03) {
+    case 0: return &cpu->registers[BC].v; break;
+    case 1: return &cpu->registers[DE].v; break;
+    case 2: case 3:
+      return &cpu->registers[HL].v; break;
   }
 
   return NULL;

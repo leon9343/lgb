@@ -78,14 +78,32 @@ ResultInstr instruction_decode(u8 opcode) {
     case 0x7C: case 0x7D: case 0x7F:
       return build_ld_r8_r8(opcode);
 
+    case 0x80: case 0x81: case 0x82: case 0x83: case 0x84: case 0x85: case 0x87: // ADD A,r8
+    case 0x88: case 0x89: case 0x8A: case 0x8B: case 0x8C: case 0x8D: case 0x8F: // ADC A,r8
+    case 0x90: case 0x91: case 0x92: case 0x93: case 0x94: case 0x95: case 0x97: // SUB A,r8
+    case 0x98: case 0x99: case 0x9A: case 0x9B: case 0x9C: case 0x9D: case 0x9F: // SBC A,r8
+    case 0xA0: case 0xA1: case 0xA2: case 0xA3: case 0xA4: case 0xA5: case 0xA7: // AND A,r8
+    case 0xA8: case 0xA9: case 0xAA: case 0xAB: case 0xAC: case 0xAD: case 0xAF: // XOR A,r8
+    case 0xB0: case 0xB1: case 0xB2: case 0xB3: case 0xB4: case 0xB5: case 0xB7: // OR A,r8
+    case 0xB8: case 0xB9: case 0xBA: case 0xBB: case 0xBC: case 0xBD: case 0xBF: // CP A,r8
+      return build_logic_r8(opcode);
+
     // LD r16, d16
     case 0x01: case 0x11: case 0x21: case 0x31:
       return build_ld_r16_imm(opcode);
+
+    // LD (r16), A
+    case 0x02: case 0x12: case 0x22: case 0x32:
+      return build_ld_r16mem_a(opcode);
 
     // 16-bit INC/DEC
     case 0x03: case 0x13: case 0x23: case 0x33:
     case 0x08: case 0x18: case 0x28: case 0x38:
       return build_inc_dec_r16(opcode);
+
+    // 0xCB prefix
+    case 0xCB:
+      return build_cb();
 
     default:
       return result_err_Instr(EmuError_InstrUnimp,
@@ -108,12 +126,10 @@ Result instruction_step(Cpu* cpu, Mem* mem, Instruction* instruction) {
   if (!fn)
     return result_error(Error_NullPointer, "null TCycle in instruction_step");
 
-  // Call TCycle only during RISING or HIGH
   if (cpu->clock_phase == CLOCK_RISING || cpu->clock_phase == CLOCK_HIGH) {
     fn(cpu, mem);
   }
 
-  // Advance to next T-cycle on FALLING edge
   if (cpu->clock_phase == CLOCK_FALLING) {
     instruction->current_tcycle++;
     if (instruction->current_tcycle >= mc->tcycle_count) {
