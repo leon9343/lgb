@@ -26,7 +26,6 @@ static void cb_fetch_t1(Cpu* cpu, Mem* mem) {
   if (cpu->clock_phase == CLOCK_RISING) {
     u8 data = mem_read8(mem, cpu, cpu->registers[PC].v + 1);
     set_data_bus_value(cpu, data);
-    LOG_DEBUG("PC: %04X\nIR: %02X", cpu->registers[PC].v, cpu->IR);
   } else if (cpu->clock_phase == CLOCK_HIGH) {
     pin_set_low(&cpu->pin_RD);
     cpu->registers[PC].v++;

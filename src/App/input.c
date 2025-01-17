@@ -33,6 +33,7 @@ static EInputCode handle_keydown(struct App *app, SDL_Keycode key) {
         if (!app->auto_run) {
           app->paused   = false;
           app->auto_run = true;
+          app->cpu->paused = false;
         } else {
           app->paused   = true;
           app->auto_run = false;

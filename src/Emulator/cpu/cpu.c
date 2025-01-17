@@ -140,6 +140,8 @@ Result cpu_init(Cpu* cpu, Mem* mem) {
 
   cpu->mem = mem;
 
+  cpu->paused = false;
+
   LOG_TRACE("cpu initialized successfully");
   return result_ok();
 }
@@ -179,6 +181,7 @@ Result cpu_step(Cpu* cpu) {
 
     if (result_Instr_is_err(&rdec)) {
       LOG_WARNING("UNIMPLEMENTED OPCODE 0x%02X at PC=0x%04X", cpu->IR, cpu->registers[PC].v - 1);
+      cpu->paused = true;
       g_hasInstr = false;
       return result_error(rdec.error_code, "Decode Error: %s", rdec.message);
     }

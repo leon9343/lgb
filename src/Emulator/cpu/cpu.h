@@ -117,6 +117,9 @@ typedef struct Cpu {
   Apu apu;
 
   Mem* mem;
+
+  // DEBUG
+  bool paused;
 } Cpu;
 
 // Initializes the cpu internals to default values, and links app.mem to cpu.mem (passed as argument)

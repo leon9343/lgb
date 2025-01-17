@@ -188,6 +188,11 @@ Result app_run(App* app) {
   while (app->running) {
     handle_input(app);
 
+    if (app->cpu->paused) {
+      app->auto_run = false;
+      app->paused = true;
+    }
+
     if (app->auto_run && !app->paused) {
       SDL_LockMutex(app->timing_mutex);
       update_timing_history(app);
@@ -327,6 +332,7 @@ static int emulation_thread_func(void* data) {
   u64 cycles = 0;
   app->thread_running = true;
 
+
   while (!app->should_quit && app->resources_valid) {
     if (app->auto_run && !app->paused) {
       SDL_LockMutex(app->cpu_mutex);
@@ -335,7 +341,9 @@ static int emulation_thread_func(void* data) {
         SDL_UnlockMutex(app->cpu_mutex);
         break;
       }
-      cpu_clock_tick(app->cpu);
+
+      if (!app->cpu->paused)
+        cpu_clock_tick(app->cpu);
 
       SDL_LockMutex(app->timing_mutex);
       update_timing_history(app);
